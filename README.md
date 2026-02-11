@@ -86,7 +86,7 @@ fl-project/
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/Kaps-Jadeja/SecureBlockchainIntegrated_FL.git
+git clone https://github.com/DInfinity8080/SecureBlockchainIntegrated_FL.git
 cd SecureBlockchainIntegrated_FL
 ```
 
