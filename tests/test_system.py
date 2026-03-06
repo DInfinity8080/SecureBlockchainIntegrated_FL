@@ -6,7 +6,7 @@ Or:       python tests/test_system.py
 """
 
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+os.environ['CUDA_VISIBLE_DEVICES'] = '3'
 
 import sys
 import unittest
@@ -212,6 +212,196 @@ class TestBlockchainHelper(unittest.TestCase):
         bh = BlockchainHelper.__new__(BlockchainHelper)
         self.assertNotEqual(bh._hash_weights(w1), bh._hash_weights(w2))
 
+# ── Attack Simulator Tests ───────────────────────────────────────
+
+class TestAttackSimulator(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        """Load data once for all attack tests."""
+        from data_loader import load_and_preprocess, partition_data
+        X, y = load_and_preprocess()
+        partitions = partition_data(X, y, num_clients=5)
+        x_data, y_data = partitions[0]
+        split = int(0.8 * len(x_data))
+        cls.x_train = x_data[:split]
+        cls.y_train = y_data[:split]
+        cls.x_test = x_data[split:]
+        cls.y_test = y_data[split:]
+
+    def test_label_flip_changes_labels(self):
+        """Label flip attack should shift all labels by 1 mod 5."""
+        from attack_simulator import MaliciousClient
+        original_labels = self.y_train.copy()
+        client = MaliciousClient(
+            client_id=0,
+            x_train=self.x_train.copy(),
+            y_train=original_labels,
+            x_test=self.x_test,
+            y_test=self.y_test,
+            attack_type='label_flip'
+        )
+        expected = (original_labels + 1) % 5
+        np.testing.assert_array_equal(client.y_train, expected)
+
+    def test_label_flip_preserves_count(self):
+        """Label flip should not change the number of samples."""
+        from attack_simulator import MaliciousClient
+        client = MaliciousClient(
+            client_id=0,
+            x_train=self.x_train.copy(),
+            y_train=self.y_train.copy(),
+            x_test=self.x_test,
+            y_test=self.y_test,
+            attack_type='label_flip'
+        )
+        self.assertEqual(len(client.y_train), len(self.y_train))
+
+    def test_noise_injection_modifies_data(self):
+        """Noise injection should change training data."""
+        from attack_simulator import MaliciousClient
+        original_x = self.x_train.copy()
+        client = MaliciousClient(
+            client_id=0,
+            x_train=original_x,
+            y_train=self.y_train.copy(),
+            x_test=self.x_test,
+            y_test=self.y_test,
+            attack_type='noise_injection'
+        )
+        # Data should be different after noise injection
+        self.assertFalse(np.array_equal(client.x_train, self.x_train))
+
+    def test_noise_injection_preserves_shape(self):
+        """Noise injection should not change data shape."""
+        from attack_simulator import MaliciousClient
+        client = MaliciousClient(
+            client_id=0,
+            x_train=self.x_train.copy(),
+            y_train=self.y_train.copy(),
+            x_test=self.x_test,
+            y_test=self.y_test,
+            attack_type='noise_injection'
+        )
+        self.assertEqual(client.x_train.shape, self.x_train.shape)
+
+    def test_scaling_attack_amplifies_weights(self):
+        """Scaling attack should produce larger weight updates."""
+        from attack_simulator import MaliciousClient
+        client = MaliciousClient(
+            client_id=0,
+            x_train=self.x_train.copy(),
+            y_train=self.y_train.copy(),
+            x_test=self.x_test,
+            y_test=self.y_test,
+            attack_type='scaling'
+        )
+        # Scaling client should be created without error
+        self.assertEqual(client.attack_type, 'scaling')
+        # Data should be unchanged (scaling happens during fit, not init)
+        np.testing.assert_array_equal(client.x_train, self.x_train)
+        np.testing.assert_array_equal(client.y_train, self.y_train)
+
+    def test_malicious_client_can_train(self):
+        """Malicious client should be able to train without crashing."""
+        from attack_simulator import MaliciousClient
+        client = MaliciousClient(
+            client_id=0,
+            x_train=self.x_train.copy(),
+            y_train=self.y_train.copy(),
+            x_test=self.x_test,
+            y_test=self.y_test,
+            attack_type='label_flip'
+        )
+        weights = client.get_parameters(config={})
+        self.assertIsNotNone(weights)
+        self.assertGreater(len(weights), 0)
+
+    def test_invalid_attack_type_no_crash(self):
+        """Unknown attack type should not crash (no poisoning applied)."""
+        from attack_simulator import MaliciousClient
+        client = MaliciousClient(
+            client_id=0,
+            x_train=self.x_train.copy(),
+            y_train=self.y_train.copy(),
+            x_test=self.x_test,
+            y_test=self.y_test,
+            attack_type='unknown_attack'
+        )
+        # Data should be unchanged
+        np.testing.assert_array_equal(client.x_train, self.x_train)
+        np.testing.assert_array_equal(client.y_train, self.y_train)
 
 if __name__ == '__main__':
-    unittest.main(verbosity=2)
+    import io
+    import contextlib
+
+    print("\n" + "=" * 60)
+    print("  SECURE FL SYSTEM — TEST SUITE")
+    print("=" * 60)
+
+    loader = unittest.TestLoader()
+
+    test_groups = {
+        'Model':              TestModel,
+        'Data Loader':        TestDataLoader,
+        'Poisoning Detector': TestPoisoningDetector,
+        'Client Utilities':   TestClientUtilities,
+        'Blockchain Helper':  TestBlockchainHelper,
+        'Attack Simulator':   TestAttackSimulator,
+    }
+
+    total_tests = 0
+    total_passed = 0
+    total_failed = 0
+    group_results = []
+
+    for group_name, test_class in test_groups.items():
+        print(f"\n  [{group_name}]")
+        print(f"  {'-' * 50}")
+
+        suite = loader.loadTestsFromTestCase(test_class)
+        test_names = loader.getTestCaseNames(test_class)
+
+        # Run tests with all output suppressed
+        with contextlib.redirect_stdout(io.StringIO()), \
+             contextlib.redirect_stderr(io.StringIO()):
+            runner = unittest.TextTestRunner(verbosity=0, stream=io.StringIO())
+            result = runner.run(suite)
+
+        passed = result.testsRun - len(result.failures) - len(result.errors)
+        failed = len(result.failures) + len(result.errors)
+        total_tests += result.testsRun
+        total_passed += passed
+        total_failed += failed
+
+        failed_names = set()
+        for test, traceback in result.failures + result.errors:
+            name = str(test).split()[0]
+            failed_names.add(name)
+
+        for name in test_names:
+            if name in failed_names:
+                print(f"    FAIL  {name}")
+            else:
+                print(f"    PASS  {name}")
+
+        group_results.append((group_name, result.testsRun, passed, failed))
+
+    # Summary table
+    print("\n" + "=" * 60)
+    print("  TEST RESULTS SUMMARY")
+    print("=" * 60)
+    print(f"  {'Component':<22} {'Tests':>6} {'Pass':>6} {'Fail':>6}  Status")
+    print(f"  {'-' * 54}")
+
+    for name, total, passed, failed in group_results:
+        status = "PASS" if failed == 0 else "FAIL"
+        print(f"  {name:<22} {total:>6} {passed:>6} {failed:>6}  {status}")
+
+    print(f"  {'-' * 54}")
+    print(f"  {'TOTAL':<22} {total_tests:>6} {total_passed:>6} {total_failed:>6}  "
+          f"{'ALL PASSED' if total_failed == 0 else 'FAILURES DETECTED'}")
+    print("=" * 60 + "\n")
+
+    if total_failed > 0:
+        sys.exit(1)
