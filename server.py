@@ -20,8 +20,8 @@ SERVER_ADDRESS = "0.0.0.0:9090"
 COMM_METRICS_FILE = "communication_metrics.csv"
 
 # Dropout / Async settings
-FRACTION_FIT = 0.7          # Sample 70% of clients each round
-FRACTION_EVALUATE = 0.7     # Evaluate on 70% of clients
+FRACTION_FIT = 1.0          # Sample 100% of clients each round
+FRACTION_EVALUATE = 1.0     # Evaluate on 100% of clients
 MIN_FIT_CLIENTS = 3         # Minimum clients needed to proceed
 MIN_EVALUATE_CLIENTS = 3
 ROUND_TIMEOUT = 120         # Seconds to wait for clients per round
@@ -43,19 +43,21 @@ class SecureFedAvg(fl.server.strategy.FedAvg):
         self.detector = poisoning_detector
         self.global_weights = None
         self.client_account_map = {}
-        self.devices_registered = False
         self.comm_log = []
-        self.participation_log = []  # Track client participation per round
+        self.participation_log = []
 
     def _register_devices(self, num_clients):
-        if self.devices_registered:
-            return
+        """Register any new devices that haven't been registered yet."""
+        new_registrations = 0
         for i in range(num_clients):
-            account_idx = i + 1
-            self.client_account_map[i] = account_idx
-            self.blockchain.ensure_registered(account_idx, f"fl_client_{i}")
-        self.devices_registered = True
-        print(f"Registered {num_clients} devices on blockchain")
+            if i not in self.client_account_map:
+                account_idx = len(self.client_account_map) + 1
+                self.client_account_map[i] = account_idx
+                self.blockchain.ensure_registered(account_idx, f"fl_client_{i}")
+                new_registrations += 1
+        if new_registrations > 0:
+            print(f"Registered {new_registrations} new devices on blockchain "
+                  f"({len(self.client_account_map)} total)")
 
     def aggregate_fit(self, server_round, results, failures):
         if not results:
@@ -83,7 +85,7 @@ class SecureFedAvg(fl.server.strategy.FedAvg):
             'participation_rate': num_responded / total_sampled if total_sampled > 0 else 0,
         })
 
-        # Register devices on first round
+        # Register devices
         try:
             self._register_devices(num_responded)
         except Exception as e:
@@ -110,13 +112,6 @@ class SecureFedAvg(fl.server.strategy.FedAvg):
         total_round_bytes = round_comm_bytes + broadcast_bytes
         centralized_data_bytes = 148517 * 41 * 4
 
-        print(f"\n[Round {server_round}] Communication Metrics:")
-        print(f"  Client uploads:    {num_responded} × {global_model_size/1024:.1f} KB = {round_comm_bytes/1024:.1f} KB total")
-        print(f"  Server broadcast:  {num_responded} × {global_model_size/1024:.1f} KB = {broadcast_bytes/1024:.1f} KB total")
-        print(f"  Round total:       {total_round_bytes/1024:.1f} KB ({total_round_bytes/1024/1024:.3f} MB)")
-        print(f"  Centralized equiv: {centralized_data_bytes/1024/1024:.1f} MB (all raw data)")
-        print(f"  Savings vs central: {(1 - total_round_bytes/centralized_data_bytes)*100:.1f}%")
-
         self.comm_log.append({
             'round': server_round,
             'num_clients': num_responded,
@@ -130,9 +125,7 @@ class SecureFedAvg(fl.server.strategy.FedAvg):
         })
 
         # Run poisoning detection
-        print(f"\n{'='*60}")
-        print(f"[Round {server_round}] Running poisoning detection...")
-        print(f"[Round {server_round}] Received updates from {num_responded} clients")
+        print(f"\n[Round {server_round}] Running poisoning detection...")
         detection_results = self.detector.detect_poisoning(
             client_updates, self.global_weights
         )
@@ -206,8 +199,6 @@ class SecureFedAvg(fl.server.strategy.FedAvg):
         except Exception as e:
             print(f"[Round {server_round}] Blockchain error: {e}")
 
-        print(f"{'='*60}\n")
-
         return ndarrays_to_parameters(aggregated), {}
 
     def save_comm_metrics(self):
@@ -219,21 +210,6 @@ class SecureFedAvg(fl.server.strategy.FedAvg):
             writer.writeheader()
             writer.writerows(self.comm_log)
 
-        total_bytes = sum(r['total_round_bytes'] for r in self.comm_log)
-        total_rounds = len(self.comm_log)
-        centralized = self.comm_log[0]['centralized_equiv_bytes']
-
-        print(f"\n{'='*60}")
-        print(f"  COMMUNICATION METRICS SUMMARY")
-        print(f"{'='*60}")
-        print(f"  Total rounds:          {total_rounds}")
-        print(f"  Total FL comm:         {total_bytes/1024/1024:.3f} MB")
-        print(f"  Centralized equiv:     {centralized/1024/1024:.1f} MB")
-        print(f"  Overall savings:       {(1 - total_bytes/centralized)*100:.1f}%")
-        print(f"  Avg per round:         {total_bytes/total_rounds/1024:.1f} KB")
-        print(f"  Saved to:              {COMM_METRICS_FILE}")
-        print(f"{'='*60}")
-
     def save_participation_log(self):
         """Save participation/dropout metrics to CSV."""
         if not self.participation_log:
@@ -244,16 +220,93 @@ class SecureFedAvg(fl.server.strategy.FedAvg):
             writer.writeheader()
             writer.writerows(self.participation_log)
 
+    def save_reputation_log(self):
+        """Save final reputation scores to CSV."""
+        filepath = "reputation_scores.csv"
+        rows = []
+        for client_id, account_idx in sorted(self.client_account_map.items()):
+            try:
+                rep = self.blockchain.get_reputation(account_index=account_idx)
+            except:
+                rep = "N/A"
+            rows.append({
+                'client_id': client_id,
+                'account_index': account_idx,
+                'final_reputation': rep,
+            })
+        with open(filepath, 'w', newline='') as f:
+            writer = csv.DictWriter(f, fieldnames=['client_id', 'account_index', 'final_reputation'])
+            writer.writeheader()
+            writer.writerows(rows)
+
+    def print_final_report(self, total_time=0):
+        """Print a clean final report of the FL session."""
+        print("\n")
+        print("╔" + "═" * 58 + "╗")
+        print("║" + "  FEDERATED LEARNING — SESSION REPORT".center(58) + "║")
+        print("╠" + "═" * 58 + "╣")
+
+        # Training progress
+        print("║" + "  TRAINING PROGRESS".center(58) + "║")
+        print("║" + "  " + "-" * 54 + "  ║")
+        total_rounds = len(self.comm_log)
+        print(f"║  Rounds completed:         {total_rounds}".ljust(59) + "║")
+        print(f"║  Total time:               {total_time:.1f}s".ljust(59) + "║")
+        print("║" + " " * 58 + "║")
+        for entry in self.comm_log:
+            r = entry['round']
+            n = entry['num_clients']
+            d = entry['num_dropped']
+            drop_str = f", {d} dropped" if d > 0 else ""
+            print(f"║  Round {r}:  {n} clients{drop_str}".ljust(59) + "║")
+
+        # Communication metrics
+        print("╠" + "═" * 58 + "╣")
+        print("║" + "  COMMUNICATION METRICS".center(58) + "║")
+        print("║" + "  " + "-" * 54 + "  ║")
+        total_bytes = sum(r['total_round_bytes'] for r in self.comm_log)
+        centralized = self.comm_log[0]['centralized_equiv_bytes']
+        per_client = self.comm_log[0]['per_client_upload_bytes']
+        avg_round = total_bytes / len(self.comm_log)
+        savings = (1 - total_bytes / centralized) * 100
+
+        print(f"║  Per-client update size:   {per_client/1024:.1f} KB".ljust(59) + "║")
+        print(f"║  Avg round total:          {avg_round/1024:.1f} KB".ljust(59) + "║")
+        print(f"║  Total FL communication:   {total_bytes/1024/1024:.3f} MB".ljust(59) + "║")
+        print(f"║  Centralized equivalent:   {centralized/1024/1024:.1f} MB".ljust(59) + "║")
+        print(f"║  Bandwidth savings:        {savings:.1f}%".ljust(59) + "║")
+
+        # Participation
+        print("╠" + "═" * 58 + "╣")
+        print("║" + "  PARTICIPATION & DROPOUT".center(58) + "║")
+        print("║" + "  " + "-" * 54 + "  ║")
         avg_rate = np.mean([r['participation_rate'] for r in self.participation_log])
         total_drops = sum(r['dropped'] for r in self.participation_log)
+        print(f"║  Avg participation rate:   {avg_rate*100:.1f}%".ljust(59) + "║")
+        print(f"║  Total dropouts:           {total_drops}".ljust(59) + "║")
 
-        print(f"\n{'='*60}")
-        print(f"  PARTICIPATION METRICS SUMMARY")
-        print(f"{'='*60}")
-        print(f"  Avg participation rate:  {avg_rate*100:.1f}%")
-        print(f"  Total dropouts:          {total_drops}")
-        print(f"  Saved to:                {filepath}")
-        print(f"{'='*60}")
+        # Reputation summary
+        print("╠" + "═" * 58 + "╣")
+        print("║" + "  BLOCKCHAIN REPUTATION".center(58) + "║")
+        print("║" + "  " + "-" * 54 + "  ║")
+        for client_id, account_idx in sorted(self.client_account_map.items()):
+            try:
+                rep = self.blockchain.get_reputation(account_index=account_idx)
+                bar = "█" * (rep // 10)
+                print(f"║  Client {client_id:>2}:  {rep:>3}  {bar}".ljust(59) + "║")
+            except:
+                print(f"║  Client {client_id:>2}:  N/A".ljust(59) + "║")
+        print(f"║  (Full details in reputation_scores.csv)".ljust(59) + "║")
+
+        # Files saved
+        print("╠" + "═" * 58 + "╣")
+        print("║" + "  FILES SAVED".center(58) + "║")
+        print("║" + "  " + "-" * 54 + "  ║")
+        print("║  communication_metrics.csv".ljust(59) + "║")
+        print("║  participation_metrics.csv".ljust(59) + "║")
+        print("║  reputation_scores.csv".ljust(59) + "║")
+        print("╚" + "═" * 58 + "╝")
+        print()
 
 
 def start_server(num_rounds=NUM_ROUNDS, num_clients=NUM_CLIENTS):
@@ -304,6 +357,8 @@ def start_server(num_rounds=NUM_ROUNDS, num_clients=NUM_CLIENTS):
             initial_parameters=initial_parameters,
         )
 
+    start_time = time.time()
+
     fl.server.start_server(
         server_address=SERVER_ADDRESS,
         config=fl.server.ServerConfig(
@@ -313,10 +368,14 @@ def start_server(num_rounds=NUM_ROUNDS, num_clients=NUM_CLIENTS):
         strategy=strategy,
     )
 
-    # Save metrics after training completes
+    total_time = time.time() - start_time
+
+    # Save metrics and print report after training completes
     if isinstance(strategy, SecureFedAvg):
         strategy.save_comm_metrics()
         strategy.save_participation_log()
+        strategy.save_reputation_log()
+        strategy.print_final_report(total_time=total_time)
 
 
 if __name__ == '__main__':
