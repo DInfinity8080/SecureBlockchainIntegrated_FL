@@ -24,7 +24,7 @@ FRACTION_FIT = 0.7          # Sample 70% of clients each round
 FRACTION_EVALUATE = 0.7     # Evaluate on 70% of clients
 MIN_FIT_CLIENTS = 3         # Minimum clients needed to proceed
 MIN_EVALUATE_CLIENTS = 3
-ROUND_TIMEOUT = 120         # Seconds to wait for clients per round
+ROUND_TIMEOUT = 45          # Seconds to wait for clients per round
 # ─────────────────────────────────────────────────────────────────
 
 
@@ -45,7 +45,7 @@ class SecureFedAvg(fl.server.strategy.FedAvg):
         self.client_account_map = {}
         self.devices_registered = False
         self.comm_log = []
-        self.participation_log = []  # Track client participation per round
+        self.participation_log = []
 
     def _register_devices(self, num_clients):
         if self.devices_registered:

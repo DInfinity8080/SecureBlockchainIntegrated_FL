@@ -101,10 +101,8 @@ class FLClient(fl.client.NumPyClient):
                 print(f"[Client {self.client_id}] DROPOUT — simulating "
                       f"connection failure (Tier {self.tier}, "
                       f"p={dropout_prob})")
-                # Simulate timeout by sleeping longer than round_timeout
-                # The server will move on without this client
-                time.sleep(150)
-                # Return stale weights (won't be used due to timeout)
+                # Sleep longer than round_timeout (45s) so server moves on
+                time.sleep(60)
                 return self.model.get_weights(), len(self.x_train), {}
 
         self.rounds_participated += 1
