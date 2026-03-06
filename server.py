@@ -10,6 +10,13 @@ from model import create_model
 from blockchain_helper import BlockchainHelper
 from poisoning_detector import PoisoningDetector
 
+# ── Configuration ────────────────────────────────────────────────
+NUM_CLIENTS = 10       # Number of FL clients (10-50 supported)
+NUM_ROUNDS = 5         # Number of federated learning rounds
+Z_THRESHOLD = 1.5      # Poisoning detection sensitivity
+SERVER_ADDRESS = "0.0.0.0:9090"
+# ─────────────────────────────────────────────────────────────────
+
 class SecureFedAvg(fl.server.strategy.FedAvg):
     def __init__(self, blockchain, poisoning_detector, **kwargs):
         super().__init__(**kwargs)
@@ -50,6 +57,7 @@ class SecureFedAvg(fl.server.strategy.FedAvg):
         # Run poisoning detection
         print(f"\n{'='*60}")
         print(f"[Round {server_round}] Running poisoning detection...")
+        print(f"[Round {server_round}] Received updates from {len(results)} clients")
         detection_results = self.detector.detect_poisoning(
             client_updates, self.global_weights
         )
@@ -127,19 +135,30 @@ class SecureFedAvg(fl.server.strategy.FedAvg):
 
         return ndarrays_to_parameters(aggregated), {}
 
-def start_server(num_rounds=5):
+
+def start_server(num_rounds=NUM_ROUNDS, num_clients=NUM_CLIENTS):
+    print(f"\n{'='*60}")
+    print(f"  Secure Federated Learning Server")
+    print(f"  Clients: {num_clients} | Rounds: {num_rounds}")
+    print(f"  Poisoning threshold: {Z_THRESHOLD}")
+    print(f"{'='*60}\n")
+
     model = create_model()
     initial_weights = model.get_weights()
     initial_parameters = ndarrays_to_parameters(initial_weights)
 
     try:
         blockchain = BlockchainHelper()
-        print("Blockchain connected for FL server")
+        num_accounts = len(blockchain.accounts)
+        if num_accounts < num_clients + 1:
+            print(f"WARNING: Ganache has {num_accounts} accounts but need {num_clients + 1}")
+            print(f"Restart Ganache with: ganache --port 7545 --accounts {num_clients + 5}")
+        print(f"Blockchain connected for FL server ({num_accounts} accounts available)")
     except Exception as e:
         print(f"Blockchain connection failed: {e}")
         blockchain = None
 
-    detector = PoisoningDetector(z_threshold=1.5)
+    detector = PoisoningDetector(z_threshold=Z_THRESHOLD)
 
     if blockchain:
         strategy = SecureFedAvg(
@@ -147,26 +166,30 @@ def start_server(num_rounds=5):
             poisoning_detector=detector,
             fraction_fit=1.0,
             fraction_evaluate=1.0,
-            min_fit_clients=5,
-            min_evaluate_clients=5,
-            min_available_clients=5,
+            min_fit_clients=num_clients,
+            min_evaluate_clients=num_clients,
+            min_available_clients=num_clients,
             initial_parameters=initial_parameters,
         )
     else:
         strategy = fl.server.strategy.FedAvg(
             fraction_fit=1.0,
             fraction_evaluate=1.0,
-            min_fit_clients=5,
-            min_evaluate_clients=5,
-            min_available_clients=5,
+            min_fit_clients=num_clients,
+            min_evaluate_clients=num_clients,
+            min_available_clients=num_clients,
             initial_parameters=initial_parameters,
         )
 
     fl.server.start_server(
-        server_address="0.0.0.0:9090",
+        server_address=SERVER_ADDRESS,
         config=fl.server.ServerConfig(num_rounds=num_rounds),
         strategy=strategy,
     )
 
+
 if __name__ == '__main__':
-    start_server(num_rounds=5)
+    import sys
+    num_clients = int(sys.argv[1]) if len(sys.argv) > 1 else NUM_CLIENTS
+    num_rounds = int(sys.argv[2]) if len(sys.argv) > 2 else NUM_ROUNDS
+    start_server(num_rounds=num_rounds, num_clients=num_clients)
