@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls:*)",
+      "Bash(LD_LIBRARY_PATH=\"$SITE_PKG/nvidia/cuda_runtime/lib:$SITE_PKG/nvidia/cublas/lib:$SITE_PKG/nvidia/cudnn/lib:$SITE_PKG/nvidia/cufft/lib:$SITE_PKG/nvidia/curand/lib:$SITE_PKG/nvidia/nvjitlink/lib\" strace:*)",
+      "Bash(sudo:*)",
+      "Bash(/opt/fl-project/SecureBlockchainIntegrated_FL/venv/bin/python:*)"
+    ]
+  }
+}

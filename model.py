@@ -1,7 +1,10 @@
+import os
+os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+
 import tensorflow as tf
 import numpy as np
 
-def create_model(input_dim=41, num_classes=5):
+def create_model(input_dim=41, num_classes=5, learning_rate=0.001):
     model = tf.keras.Sequential([
         tf.keras.layers.Dense(128, activation='relu', input_shape=(input_dim,)),
         tf.keras.layers.Dropout(0.3),
@@ -10,13 +13,13 @@ def create_model(input_dim=41, num_classes=5):
         tf.keras.layers.Dense(32, activation='relu'),
         tf.keras.layers.Dense(num_classes, activation='softmax')
     ])
-    
+
     model.compile(
-        optimizer='adam',
+        optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
         loss='sparse_categorical_crossentropy',
         metrics=['accuracy']
     )
-    
+
     return model
 
 if __name__ == '__main__':

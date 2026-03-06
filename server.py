@@ -1,3 +1,6 @@
+import os
+os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+
 import flwr as fl
 from flwr.common import parameters_to_ndarrays, ndarrays_to_parameters, FitRes, Parameters
 from flwr.server.client_proxy import ClientProxy
