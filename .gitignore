@@ -1,9 +1,26 @@
+# Python
 venv/
-node_modules/
-build/
 __pycache__/
 *.pyc
+*.pyo
+
+# Node / Blockchain
+node_modules/
+build/
+
+# Environment
 .env
-venv/
-ecgDataset/
+
+# Logs & runtime output
 logs/
+data/
+
+# Generated CSV results
+communication_metrics.csv
+participation_metrics.csv
+reputation_scores.csv
+baseline_results.csv
+results/
+
+# Dataset (too large for git)
+ecgDataset/

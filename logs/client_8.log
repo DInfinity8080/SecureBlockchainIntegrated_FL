@@ -1,100 +1,0 @@
-/Users/dev/Desktop/SecureBlockchainIntegrated_FL/venv/lib/python3.12/site-packages/keras/src/layers/core/dense.py:106: UserWarning: Do not pass an `input_shape`/`input_dim` argument to a layer. When using Sequential models, prefer using an `Input(shape)` object as the first layer in the model instead.
-  super().__init__(activity_regularizer=activity_regularizer, **kwargs)
-[93mWARNING [0m:   DEPRECATED FEATURE: flwr.client.start_numpy_client() is deprecated. 
-	Instead, use `flwr.client.start_client()` by ensuring you first call the `.to_client()` method as shown below: 
-	flwr.client.start_client(
-		server_address='<IP>:<PORT>',
-		client=FlowerClient().to_client(), # <-- where FlowerClient is of type flwr.client.NumPyClient object
-	)
-	Using `start_numpy_client()` is deprecated.
-
-            This is a deprecated feature. It will be removed
-            entirely in future versions of Flower.
-        
-[93mWARNING [0m:   DEPRECATED FEATURE: flwr.client.start_client() is deprecated.
-	Instead, use the `flower-supernode` CLI command to start a SuperNode as shown below:
-
-		$ flower-supernode --insecure --superlink='<IP>:<PORT>'
-
-	To view all available options, run:
-
-		$ flower-supernode --help
-
-	Using `start_client()` is deprecated.
-
-            This is a deprecated feature. It will be removed
-            entirely in future versions of Flower.
-        
-WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
-I0000 00:00:1772839777.954936 7431682 fork_posix.cc:71] Other threads are currently calling into gRPC, skipping fork() handlers
-[92mINFO [0m:      
-[92mINFO [0m:      Received: train message 963eca5e-a4e4-4be3-acc7-3c3018b15f4c
-Starting Client 8...
-[Client 8] Train: 4752, Test: 1188
-Connected to blockchain: http://127.0.0.1:7545
-Contract at: 0x66faEc1cd108254b4C03452462ca15A901EAEa07
-Available accounts: 15
-Device 'client_8' registered | Account: 0x60a6c392...
-[Client 8] Registered on blockchain
-[Client 8] Tier 3: Constrained Sensor Node
-  Epochs: 1, Batch: 64, Data fraction: 0.4, LR: 0.0005
-  Dropout probability: 0.25
-  Training samples: 4752, Test samples: 1188
-[1m 1/75[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m1:20[0m 1s/step - accuracy: 0.1719 - loss: 1.8334[1m42/75[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m0s[0m 1ms/step - accuracy: 0.4569 - loss: 1.4579 [1m75/75[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 1ms/step - accuracy: 0.5570 - loss: 1.2641[1m75/75[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m1s[0m 2ms/step - accuracy: 0.7243 - loss: 0.9081
-[92mINFO [0m:      Sent reply
-[92mINFO [0m:      
-[92mINFO [0m:      Received: evaluate message 132f536b-2d8a-4514-87cc-e32c7b60e7c3
-[92mINFO [0m:      Sent reply
-[92mINFO [0m:      
-[92mINFO [0m:      Received: train message 1e3f8e67-868f-4f91-abb9-70af500388db
-[Client 8] Update size: 62.0 KB
-Model update submitted | Hash: 9856cf0de805797f... | Accuracy: 0.8914
-[Client 8] Model update recorded on blockchain
-[Client 8] (Tier 3) Loss: 0.1221, Accuracy: 0.9579
-[1m 1/75[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m2s[0m 29ms/step - accuracy: 0.9531 - loss: 0.1746[1m15/75[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m0s[0m 4ms/step - accuracy: 0.9509 - loss: 0.1552 [1m22/75[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m0s[0m 5ms/step - accuracy: 0.9467 - loss: 0.1618[1m31/75[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m0s[0m 5ms/step - accuracy: 0.9450 - loss: 0.1634[1m36/75[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m0s[0m 6ms/step - accuracy: 0.9446 - loss: 0.1640[1m43/75[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m0s[0m 7ms/step - accuracy: 0.9442 - loss: 0.1646[1m70/75[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 5ms/step - accuracy: 0.9423 - loss: 0.1664[1m75/75[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 5ms/step - accuracy: 0.9398 - loss: 0.1661
-[92mINFO [0m:      Sent reply
-[92mINFO [0m:      
-[92mINFO [0m:      Received: evaluate message 74bc11b6-43e3-4e70-b51b-66bafd9b74c3
-[92mINFO [0m:      Sent reply
-[92mINFO [0m:      
-[92mINFO [0m:      Received: train message de9d20a0-88ca-4665-acc5-2f6ae2e9a610
-[Client 8] Update size: 62.0 KB
-Model update submitted | Hash: 8bc4f1e6936baf4a... | Accuracy: 0.9604
-[Client 8] Model update recorded on blockchain
-[Client 8] (Tier 3) Loss: 0.0784, Accuracy: 0.9731
-[1m 1/75[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m1s[0m 15ms/step - accuracy: 0.9375 - loss: 0.1286[1m16/75[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m0s[0m 3ms/step - accuracy: 0.9467 - loss: 0.1496 [1m31/75[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m0s[0m 3ms/step - accuracy: 0.9554 - loss: 0.1354[1m46/75[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m0s[0m 3ms/step - accuracy: 0.9584 - loss: 0.1306[1m73/75[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 3ms/step - accuracy: 0.9606 - loss: 0.1263[1m75/75[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 3ms/step - accuracy: 0.9625 - loss: 0.1195
-[92mINFO [0m:      Sent reply
-[92mINFO [0m:      
-[92mINFO [0m:      Received: evaluate message f76f952e-13b3-4c41-9fed-fa5f249e7df8
-[92mINFO [0m:      Sent reply
-[92mINFO [0m:      
-[92mINFO [0m:      Received: train message 72e91261-c919-4439-876b-9c9dbe0fd0db
-[Client 8] Update size: 62.0 KB
-Model update submitted | Hash: e15df0445869728b... | Accuracy: 0.9714
-[Client 8] Model update recorded on blockchain
-[Client 8] (Tier 3) Loss: 0.0688, Accuracy: 0.9747
-[1m 1/75[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m1s[0m 17ms/step - accuracy: 0.9375 - loss: 0.2030[1m16/75[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m0s[0m 3ms/step - accuracy: 0.9682 - loss: 0.1102 [1m40/75[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m0s[0m 3ms/step - accuracy: 0.9689 - loss: 0.1024[1m65/75[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 2ms/step - accuracy: 0.9679 - loss: 0.1031[1m75/75[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 2ms/step - accuracy: 0.9668 - loss: 0.1012
-[92mINFO [0m:      Sent reply
-[92mINFO [0m:      
-[92mINFO [0m:      Received: evaluate message f566c6ca-e70f-4179-8b3c-f71d94ef8c0d
-[92mINFO [0m:      Sent reply
-[92mINFO [0m:      
-[92mINFO [0m:      Received: train message ab1b68da-4a7f-4545-9923-6d2e3140bf62
-[92mINFO [0m:      Sent reply
-[92mINFO [0m:      
-[92mINFO [0m:      Received: evaluate message 3dd6264d-22a9-4f3e-9163-8be9e9c90c66
-[92mINFO [0m:      Sent reply
-[92mINFO [0m:      
-[92mINFO [0m:      Received: reconnect message f6cccb8e-5699-4e43-912a-6817fc5ef450
-[92mINFO [0m:      Disconnect and shut down
-[Client 8] Update size: 62.0 KB
-Model update submitted | Hash: cd1d16b56ddf0928... | Accuracy: 0.9764
-[Client 8] Model update recorded on blockchain
-[Client 8] (Tier 3) Loss: 0.0649, Accuracy: 0.9756
-[Client 8] DROPOUT — simulating connection failure (Tier 3, p=0.25)
-[Client 8] (Tier 3) Loss: 0.0554, Accuracy: 0.9781
-
-[Client 8] Session Summary:
-  Tier: 3 (Constrained Sensor Node)
-  Participated: 4/5 rounds
-  Dropped out:  1/5 rounds
