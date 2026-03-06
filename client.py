@@ -10,10 +10,6 @@ from data_loader import load_and_preprocess, partition_data
 from blockchain_helper import BlockchainHelper
 
 # ── Device Tier Definitions ──────────────────────────────────────
-# Tier 1: Powerful edge server (e.g., Raspberry Pi 4, Jetson Nano)
-# Tier 2: Mid-range IoT device (e.g., Raspberry Pi Zero, ESP32-S3)
-# Tier 3: Constrained sensor node (e.g., Arduino, low-power MCU)
-
 DEVICE_TIERS = {
     1: {
         "name": "Powerful Edge Server",
@@ -42,17 +38,24 @@ def assign_tier(client_id, num_clients=5):
     """
     Assign device tiers across clients to simulate heterogeneity.
     Distribution: ~20% Tier 1, ~40% Tier 2, ~40% Tier 3
-    This reflects real IoT deployments where most devices are constrained.
     """
     tier_assignments = {}
     for cid in range(num_clients):
         if cid % 5 == 0:
-            tier_assignments[cid] = 1  # Powerful
+            tier_assignments[cid] = 1
         elif cid % 5 in (1, 2):
-            tier_assignments[cid] = 2  # Mid-range
+            tier_assignments[cid] = 2
         else:
-            tier_assignments[cid] = 3  # Constrained
+            tier_assignments[cid] = 3
     return tier_assignments.get(client_id, 2)
+
+
+def compute_update_size(weights):
+    """Calculate the size of model weights in bytes."""
+    total_bytes = 0
+    for w in weights:
+        total_bytes += w.nbytes
+    return total_bytes
 
 
 class FLClient(fl.client.NumPyClient):
@@ -93,6 +96,12 @@ class FLClient(fl.client.NumPyClient):
 
         updated_weights = self.model.get_weights()
 
+        # ── Communication Metrics ────────────────────────────────
+        update_size_bytes = compute_update_size(updated_weights)
+        update_size_kb = update_size_bytes / 1024
+        update_size_mb = update_size_kb / 1024
+        print(f"[Client {self.client_id}] Update size: {update_size_kb:.1f} KB ({update_size_mb:.3f} MB)")
+
         if self.blockchain:
             try:
                 _, accuracy = self.model.evaluate(self.x_test, self.y_test, verbose=0)
@@ -108,6 +117,7 @@ class FLClient(fl.client.NumPyClient):
             "tier": self.tier,
             "epochs": self.tier_config["epochs"],
             "batch_size": self.tier_config["batch_size"],
+            "update_size_bytes": update_size_bytes,
         }
 
     def evaluate(self, parameters, config):
@@ -121,7 +131,6 @@ class FLClient(fl.client.NumPyClient):
 def start_client(client_id=0, num_clients=5, server_address="127.0.0.1:9090"):
     print(f"Starting Client {client_id}...")
 
-    # Assign device tier
     tier = assign_tier(client_id, num_clients)
 
     X, y = load_and_preprocess()
@@ -129,7 +138,6 @@ def start_client(client_id=0, num_clients=5, server_address="127.0.0.1:9090"):
 
     x_data, y_data = partitions[client_id]
 
-    # Apply data fraction based on tier (simulate limited storage/bandwidth)
     data_fraction = DEVICE_TIERS[tier]["data_fraction"]
     if data_fraction < 1.0:
         num_samples = int(len(x_data) * data_fraction)
