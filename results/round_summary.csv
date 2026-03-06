@@ -1,0 +1,6 @@
+session_id,round,num_clients_responded,num_clients_dropped,num_clean,num_poisoned,poisoned_client_ids,total_comm_bytes,round_time_s
+20260306_182926,1,8,2,8,0,[],1016128,0.41
+20260306_182926,2,9,1,7,2,"[4, 8]",1143144,0.24
+20260306_182926,3,10,0,9,1,[7],1270160,0.28
+20260306_182926,4,10,0,9,1,[0],1270160,0.25
+20260306_182926,5,7,3,7,0,[],889112,0.18

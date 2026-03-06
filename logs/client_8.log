@@ -1,16 +1,5 @@
-2026-03-06 16:19:05.821188: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
-To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
-/opt/fl-project/SecureBlockchainIntegrated_FL/venv/lib/python3.12/site-packages/keras/src/layers/core/dense.py:106: UserWarning: Do not pass an `input_shape`/`input_dim` argument to a layer. When using Sequential models, prefer using an `Input(shape)` object as the first layer in the model instead.
+/Users/dev/Desktop/SecureBlockchainIntegrated_FL/venv/lib/python3.12/site-packages/keras/src/layers/core/dense.py:106: UserWarning: Do not pass an `input_shape`/`input_dim` argument to a layer. When using Sequential models, prefer using an `Input(shape)` object as the first layer in the model instead.
   super().__init__(activity_regularizer=activity_regularizer, **kwargs)
-2026-03-06 16:19:21.661598: E external/local_xla/xla/stream_executor/cuda/cuda_platform.cc:51] failed call to cuInit: INTERNAL: CUDA error: Failed call to cuInit: CUDA_ERROR_NO_DEVICE: no CUDA-capable device is detected
-2026-03-06 16:19:21.661687: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:160] env: CUDA_VISIBLE_DEVICES="-1"
-2026-03-06 16:19:21.661707: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:163] CUDA_VISIBLE_DEVICES is set to -1 - this hides all GPUs from CUDA
-2026-03-06 16:19:21.661723: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:171] verbose logging is disabled. Rerun with verbose logging (usually --v=1 or --vmodule=cuda_diagnostics=1) to get more diagnostic output from this module
-2026-03-06 16:19:21.661736: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:176] retrieving CUDA diagnostic information for host: darkmatter
-2026-03-06 16:19:21.661746: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:183] hostname: darkmatter
-2026-03-06 16:19:21.662001: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:190] libcuda reported version is: 580.126.9
-2026-03-06 16:19:21.662059: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:194] kernel reported version is: 580.126.9
-2026-03-06 16:19:21.662075: I external/local_xla/xla/stream_executor/cuda/cuda_diagnostics.cc:284] kernel version seems to match DSO: 580.126.9
 [93mWARNING [0m:   DEPRECATED FEATURE: flwr.client.start_numpy_client() is deprecated. 
 	Instead, use `flwr.client.start_client()` by ensuring you first call the `.to_client()` method as shown below: 
 	flwr.client.start_client(
@@ -36,76 +25,76 @@ To enable the following instructions: AVX2 FMA, in other operations, rebuild Ten
             This is a deprecated feature. It will be removed
             entirely in future versions of Flower.
         
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1772839777.954936 7431682 fork_posix.cc:71] Other threads are currently calling into gRPC, skipping fork() handlers
 [92mINFO [0m:      
-[92mINFO [0m:      Received: train message 924e06cf-8890-49b1-a817-6b27860bf6d5
+[92mINFO [0m:      Received: train message 963eca5e-a4e4-4be3-acc7-3c3018b15f4c
 Starting Client 8...
 [Client 8] Train: 4752, Test: 1188
 Connected to blockchain: http://127.0.0.1:7545
-Contract at: 0xE8C388b1fF8BCD9244eCaCA0b5942C77188AaD4e
+Contract at: 0x66faEc1cd108254b4C03452462ca15A901EAEa07
 Available accounts: 15
-Device 'client_8' registered | Account: 0xF8070c55...
+Device 'client_8' registered | Account: 0x60a6c392...
 [Client 8] Registered on blockchain
 [Client 8] Tier 3: Constrained Sensor Node
   Epochs: 1, Batch: 64, Data fraction: 0.4, LR: 0.0005
   Dropout probability: 0.25
   Training samples: 4752, Test samples: 1188
-[1m 1/75[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m2:50[0m 2s/step - accuracy: 0.2500 - loss: 1.6353[1m16/75[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m0s[0m 3ms/step - accuracy: 0.3200 - loss: 1.5794 [1m31/75[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m0s[0m 3ms/step - accuracy: 0.4216 - loss: 1.4746[1m47/75[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m0s[0m 3ms/step - accuracy: 0.4948 - loss: 1.3768[1m63/75[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m0s[0m 3ms/step - accuracy: 0.5446 - loss: 1.2915[1m75/75[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m3s[0m 4ms/step - accuracy: 0.7304 - loss: 0.9190
+[1m 1/75[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m1:20[0m 1s/step - accuracy: 0.1719 - loss: 1.8334[1m42/75[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m0s[0m 1ms/step - accuracy: 0.4569 - loss: 1.4579 [1m75/75[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 1ms/step - accuracy: 0.5570 - loss: 1.2641[1m75/75[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m1s[0m 2ms/step - accuracy: 0.7243 - loss: 0.9081
 [92mINFO [0m:      Sent reply
 [92mINFO [0m:      
-[92mINFO [0m:      Received: evaluate message ada88873-a4bf-484c-8cf0-48b2c47c74f0
+[92mINFO [0m:      Received: evaluate message 132f536b-2d8a-4514-87cc-e32c7b60e7c3
 [92mINFO [0m:      Sent reply
 [92mINFO [0m:      
-[92mINFO [0m:      Received: train message df71b4c8-4fd7-4b77-9a8b-da616111bbfa
-[Client 8] Update size: 62.0 KB (0.061 MB)
-Model update submitted | Hash: 651d46f8f9495288... | Accuracy: 0.8939
+[92mINFO [0m:      Received: train message 1e3f8e67-868f-4f91-abb9-70af500388db
+[Client 8] Update size: 62.0 KB
+Model update submitted | Hash: 9856cf0de805797f... | Accuracy: 0.8914
 [Client 8] Model update recorded on blockchain
-[Client 8] (Tier 3) Loss: 0.1556, Accuracy: 0.9478
-[1m 1/75[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m6s[0m 93ms/step - accuracy: 0.9375 - loss: 0.1745[1m 7/75[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m0s[0m 10ms/step - accuracy: 0.9425 - loss: 0.1897[1m11/75[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m0s[0m 11ms/step - accuracy: 0.9403 - loss: 0.1963[1m15/75[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m0s[0m 12ms/step - accuracy: 0.9393 - loss: 0.1996[1m20/75[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m0s[0m 11ms/step - accuracy: 0.9384 - loss: 0.2022[1m26/75[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m0s[0m 11ms/step - accuracy: 0.9376 - loss: 0.2074[1m32/75[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m0s[0m 11ms/step - accuracy: 0.9375 - loss: 0.2087[1m37/75[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m0s[0m 11ms/step - accuracy: 0.9375 - loss: 0.2089[1m43/75[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m0s[0m 11ms/step - accuracy: 0.9375 - loss: 0.2091[1m50/75[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m0s[0m 10ms/step - accuracy: 0.9377 - loss: 0.2084[1m55/75[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m0s[0m 10ms/step - accuracy: 0.9378 - loss: 0.2078[1m61/75[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m0s[0m 10ms/step - accuracy: 0.9378 - loss: 0.2074[1m67/75[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 10ms/step - accuracy: 0.9379 - loss: 0.2074[1m72/75[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 10ms/step - accuracy: 0.9380 - loss: 0.2072[1m75/75[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m1s[0m 12ms/step - accuracy: 0.9402 - loss: 0.2018
+[Client 8] (Tier 3) Loss: 0.1221, Accuracy: 0.9579
+[1m 1/75[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m2s[0m 29ms/step - accuracy: 0.9531 - loss: 0.1746[1m15/75[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m0s[0m 4ms/step - accuracy: 0.9509 - loss: 0.1552 [1m22/75[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m0s[0m 5ms/step - accuracy: 0.9467 - loss: 0.1618[1m31/75[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m0s[0m 5ms/step - accuracy: 0.9450 - loss: 0.1634[1m36/75[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m0s[0m 6ms/step - accuracy: 0.9446 - loss: 0.1640[1m43/75[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m0s[0m 7ms/step - accuracy: 0.9442 - loss: 0.1646[1m70/75[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 5ms/step - accuracy: 0.9423 - loss: 0.1664[1m75/75[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 5ms/step - accuracy: 0.9398 - loss: 0.1661
 [92mINFO [0m:      Sent reply
 [92mINFO [0m:      
-[92mINFO [0m:      Received: evaluate message 37814745-d118-41b7-91d6-5da7ca5b15ce
+[92mINFO [0m:      Received: evaluate message 74bc11b6-43e3-4e70-b51b-66bafd9b74c3
 [92mINFO [0m:      Sent reply
 [92mINFO [0m:      
-[92mINFO [0m:      Received: train message ec98ce40-f250-47e8-9142-52408271a2c8
-[Client 8] Update size: 62.0 KB (0.061 MB)
-Model update submitted | Hash: 0de94a5dc5c5f8e0... | Accuracy: 0.9562
+[92mINFO [0m:      Received: train message de9d20a0-88ca-4665-acc5-2f6ae2e9a610
+[Client 8] Update size: 62.0 KB
+Model update submitted | Hash: 8bc4f1e6936baf4a... | Accuracy: 0.9604
 [Client 8] Model update recorded on blockchain
-[Client 8] (Tier 3) Loss: 0.0896, Accuracy: 0.9731
-[1m 1/75[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m3s[0m 52ms/step - accuracy: 0.9844 - loss: 0.0623[1m 8/75[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m0s[0m 8ms/step - accuracy: 0.9754 - loss: 0.0753 [1m15/75[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m0s[0m 8ms/step - accuracy: 0.9744 - loss: 0.0828[1m22/75[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m0s[0m 7ms/step - accuracy: 0.9729 - loss: 0.0954[1m27/75[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m0s[0m 8ms/step - accuracy: 0.9723 - loss: 0.1056[1m32/75[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m0s[0m 9ms/step - accuracy: 0.9714 - loss: 0.1131[1m36/75[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m0s[0m 9ms/step - accuracy: 0.9709 - loss: 0.1170[1m42/75[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m0s[0m 9ms/step - accuracy: 0.9703 - loss: 0.1212[1m46/75[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m0s[0m 10ms/step - accuracy: 0.9698 - loss: 0.1233[1m50/75[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m0s[0m 10ms/step - accuracy: 0.9692 - loss: 0.1252[1m53/75[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m0s[0m 10ms/step - accuracy: 0.9688 - loss: 0.1267[1m57/75[0m [32m━━━━━━━━━━━━━━━[0m[37m━━━━━[0m [1m0s[0m 11ms/step - accuracy: 0.9684 - loss: 0.1282[1m62/75[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m0s[0m 11ms/step - accuracy: 0.9680 - loss: 0.1295[1m67/75[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 11ms/step - accuracy: 0.9676 - loss: 0.1305[1m71/75[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 11ms/step - accuracy: 0.9673 - loss: 0.1313[1m75/75[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m1s[0m 13ms/step - accuracy: 0.9606 - loss: 0.1465
+[Client 8] (Tier 3) Loss: 0.0784, Accuracy: 0.9731
+[1m 1/75[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m1s[0m 15ms/step - accuracy: 0.9375 - loss: 0.1286[1m16/75[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m0s[0m 3ms/step - accuracy: 0.9467 - loss: 0.1496 [1m31/75[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m0s[0m 3ms/step - accuracy: 0.9554 - loss: 0.1354[1m46/75[0m [32m━━━━━━━━━━━━[0m[37m━━━━━━━━[0m [1m0s[0m 3ms/step - accuracy: 0.9584 - loss: 0.1306[1m73/75[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 3ms/step - accuracy: 0.9606 - loss: 0.1263[1m75/75[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 3ms/step - accuracy: 0.9625 - loss: 0.1195
 [92mINFO [0m:      Sent reply
 [92mINFO [0m:      
-[92mINFO [0m:      Received: evaluate message 4c8ca315-1d5b-40da-bfe6-3837cb5a0299
+[92mINFO [0m:      Received: evaluate message f76f952e-13b3-4c41-9fed-fa5f249e7df8
 [92mINFO [0m:      Sent reply
 [92mINFO [0m:      
-[92mINFO [0m:      Received: train message 238f5b90-fd53-4afd-92d3-306ad8f9a21d
-[Client 8] Update size: 62.0 KB (0.061 MB)
-Model update submitted | Hash: cc7e631c16e1baa3... | Accuracy: 0.9731
+[92mINFO [0m:      Received: train message 72e91261-c919-4439-876b-9c9dbe0fd0db
+[Client 8] Update size: 62.0 KB
+Model update submitted | Hash: e15df0445869728b... | Accuracy: 0.9714
 [Client 8] Model update recorded on blockchain
-[Client 8] (Tier 3) Loss: 0.0757, Accuracy: 0.9773
-[1m 1/75[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m4s[0m 54ms/step - accuracy: 0.9531 - loss: 0.1178[1m 6/75[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m0s[0m 10ms/step - accuracy: 0.9437 - loss: 0.1157[1m10/75[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m0s[0m 12ms/step - accuracy: 0.9489 - loss: 0.1129[1m14/75[0m [32m━━━[0m[37m━━━━━━━━━━━━━━━━━[0m [1m0s[0m 13ms/step - accuracy: 0.9513 - loss: 0.1117[1m19/75[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m0s[0m 12ms/step - accuracy: 0.9531 - loss: 0.1106[1m25/75[0m [32m━━━━━━[0m[37m━━━━━━━━━━━━━━[0m [1m0s[0m 11ms/step - accuracy: 0.9546 - loss: 0.1097[1m30/75[0m [32m━━━━━━━━[0m[37m━━━━━━━━━━━━[0m [1m0s[0m 11ms/step - accuracy: 0.9557 - loss: 0.1089[1m35/75[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m0s[0m 11ms/step - accuracy: 0.9567 - loss: 0.1079[1m42/75[0m [32m━━━━━━━━━━━[0m[37m━━━━━━━━━[0m [1m0s[0m 11ms/step - accuracy: 0.9581 - loss: 0.1064[1m49/75[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m0s[0m 10ms/step - accuracy: 0.9592 - loss: 0.1096[1m55/75[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m0s[0m 10ms/step - accuracy: 0.9599 - loss: 0.1127[1m61/75[0m [32m━━━━━━━━━━━━━━━━[0m[37m━━━━[0m [1m0s[0m 10ms/step - accuracy: 0.9604 - loss: 0.1152[1m68/75[0m [32m━━━━━━━━━━━━━━━━━━[0m[37m━━[0m [1m0s[0m 10ms/step - accuracy: 0.9609 - loss: 0.1173[1m75/75[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m1s[0m 10ms/step - accuracy: 0.9644 - loss: 0.1358
+[Client 8] (Tier 3) Loss: 0.0688, Accuracy: 0.9747
+[1m 1/75[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m1s[0m 17ms/step - accuracy: 0.9375 - loss: 0.2030[1m16/75[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m0s[0m 3ms/step - accuracy: 0.9682 - loss: 0.1102 [1m40/75[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m0s[0m 3ms/step - accuracy: 0.9689 - loss: 0.1024[1m65/75[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 2ms/step - accuracy: 0.9679 - loss: 0.1031[1m75/75[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m0s[0m 2ms/step - accuracy: 0.9668 - loss: 0.1012
 [92mINFO [0m:      Sent reply
 [92mINFO [0m:      
-[92mINFO [0m:      Received: evaluate message 67eabce1-ad84-45f9-a74e-9140ee64bbfa
+[92mINFO [0m:      Received: evaluate message f566c6ca-e70f-4179-8b3c-f71d94ef8c0d
 [92mINFO [0m:      Sent reply
 [92mINFO [0m:      
-[92mINFO [0m:      Received: train message 1b093d4d-8e7a-4f1a-b742-fefb4c2b2ea3
-[Client 8] Update size: 62.0 KB (0.061 MB)
-Model update submitted | Hash: 6fcffbbec617914e... | Accuracy: 0.9790
-[Client 8] Model update recorded on blockchain
-[Client 8] (Tier 3) Loss: 0.0690, Accuracy: 0.9806
-[1m 1/75[0m [37m━━━━━━━━━━━━━━━━━━━━[0m [1m3s[0m 52ms/step - accuracy: 0.9688 - loss: 0.1317[1m 5/75[0m [32m━[0m[37m━━━━━━━━━━━━━━━━━━━[0m [1m1s[0m 15ms/step - accuracy: 0.9661 - loss: 0.1092[1m 9/75[0m [32m━━[0m[37m━━━━━━━━━━━━━━━━━━[0m [1m0s[0m 14ms/step - accuracy: 0.9666 - loss: 0.1018[1m15/75[0m [32m━━━━[0m[37m━━━━━━━━━━━━━━━━[0m [1m0s[0m 13ms/step - accuracy: 0.9663 - loss: 0.1579[1m21/75[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m0s[0m 11ms/step - accuracy: 0.9667 - loss: 0.1664[1m27/75[0m [32m━━━━━━━[0m[37m━━━━━━━━━━━━━[0m [1m0s[0m 11ms/step - accuracy: 0.9672 - loss: 0.1650[1m34/75[0m [32m━━━━━━━━━[0m[37m━━━━━━━━━━━[0m [1m0s[0m 10ms/step - accuracy: 0.9675 - loss: 0.1605[1m41/75[0m [32m━━━━━━━━━━[0m[37m━━━━━━━━━━[0m [1m0s[0m 10ms/step - accuracy: 0.9676 - loss: 0.1560[1m49/75[0m [32m━━━━━━━━━━━━━[0m[37m━━━━━━━[0m [1m0s[0m 9ms/step - accuracy: 0.9677 - loss: 0.1517 [1m56/75[0m [32m━━━━━━━━━━━━━━[0m[37m━━━━━━[0m [1m0s[0m 9ms/step - accuracy: 0.9677 - loss: 0.1486[1m64/75[0m [32m━━━━━━━━━━━━━━━━━[0m[37m━━━[0m [1m0s[0m 9ms/step - accuracy: 0.9678 - loss: 0.1458[1m72/75[0m [32m━━━━━━━━━━━━━━━━━━━[0m[37m━[0m [1m0s[0m 9ms/step - accuracy: 0.9678 - loss: 0.1435[1m75/75[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m1s[0m 9ms/step - accuracy: 0.9684 - loss: 0.1244
+[92mINFO [0m:      Received: train message ab1b68da-4a7f-4545-9923-6d2e3140bf62
 [92mINFO [0m:      Sent reply
 [92mINFO [0m:      
-[92mINFO [0m:      Received: evaluate message 15ce9ed6-9a83-4487-9a0f-256afc54df15
+[92mINFO [0m:      Received: evaluate message 3dd6264d-22a9-4f3e-9163-8be9e9c90c66
 [92mINFO [0m:      Sent reply
 [92mINFO [0m:      
-[92mINFO [0m:      Received: reconnect message bad911c4-23f8-46a2-af69-b8bbd6fe49ab
+[92mINFO [0m:      Received: reconnect message f6cccb8e-5699-4e43-912a-6817fc5ef450
 [92mINFO [0m:      Disconnect and shut down
-[Client 8] Update size: 62.0 KB (0.061 MB)
-Model update submitted | Hash: 906148032e7dc4c7... | Accuracy: 0.9823
+[Client 8] Update size: 62.0 KB
+Model update submitted | Hash: cd1d16b56ddf0928... | Accuracy: 0.9764
 [Client 8] Model update recorded on blockchain
-[Client 8] (Tier 3) Loss: 0.0645, Accuracy: 0.9832
+[Client 8] (Tier 3) Loss: 0.0649, Accuracy: 0.9756
+[Client 8] DROPOUT — simulating connection failure (Tier 3, p=0.25)
+[Client 8] (Tier 3) Loss: 0.0554, Accuracy: 0.9781
 
 [Client 8] Session Summary:
-  Participated: 5/5 rounds
-  Dropped out:  0/5 rounds
+  Tier: 3 (Constrained Sensor Node)
+  Participated: 4/5 rounds
+  Dropped out:  1/5 rounds

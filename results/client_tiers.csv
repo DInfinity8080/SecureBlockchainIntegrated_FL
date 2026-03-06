@@ -1,0 +1,11 @@
+session_id,client_id,tier,tier_name,epochs,batch_size,data_fraction,dropout_prob
+20260306_182926,0,1,Powerful Edge Server,5,16,1.0,0.0
+20260306_182926,1,2,Mid-Range IoT Device,3,32,0.7,0.1
+20260306_182926,2,2,Mid-Range IoT Device,3,32,0.7,0.1
+20260306_182926,3,3,Constrained Sensor Node,1,64,0.4,0.25
+20260306_182926,4,3,Constrained Sensor Node,1,64,0.4,0.25
+20260306_182926,5,1,Powerful Edge Server,5,16,1.0,0.0
+20260306_182926,6,2,Mid-Range IoT Device,3,32,0.7,0.1
+20260306_182926,7,2,Mid-Range IoT Device,3,32,0.7,0.1
+20260306_182926,8,3,Constrained Sensor Node,1,64,0.4,0.25
+20260306_182926,9,3,Constrained Sensor Node,1,64,0.4,0.25

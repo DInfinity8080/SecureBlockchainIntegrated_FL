@@ -18,7 +18,7 @@ DEVICE_TIERS = {
         "batch_size": 16,
         "data_fraction": 1.0,
         "learning_rate": 0.001,
-        "dropout_prob": 0.0,   # Reliable, never drops
+        "dropout_prob": 0.0,
     },
     2: {
         "name": "Mid-Range IoT Device",
@@ -26,7 +26,7 @@ DEVICE_TIERS = {
         "batch_size": 32,
         "data_fraction": 0.7,
         "learning_rate": 0.001,
-        "dropout_prob": 0.1,   # 10% chance of dropout per round
+        "dropout_prob": 0.1,
     },
     3: {
         "name": "Constrained Sensor Node",
@@ -34,28 +34,21 @@ DEVICE_TIERS = {
         "batch_size": 64,
         "data_fraction": 0.4,
         "learning_rate": 0.0005,
-        "dropout_prob": 0.25,  # 25% chance of dropout per round
+        "dropout_prob": 0.25,
     },
 }
 
-def assign_tier(client_id, num_clients=5):
-    """
-    Assign device tiers across clients to simulate heterogeneity.
-    Distribution: ~20% Tier 1, ~40% Tier 2, ~40% Tier 3
-    """
-    tier_assignments = {}
-    for cid in range(num_clients):
-        if cid % 5 == 0:
-            tier_assignments[cid] = 1
-        elif cid % 5 in (1, 2):
-            tier_assignments[cid] = 2
-        else:
-            tier_assignments[cid] = 3
-    return tier_assignments.get(client_id, 2)
+TIER_DISTRIBUTION = [1, 2, 2, 3, 3]
+
+
+def assign_tier(client_id, num_clients=5, random_tiers=False):
+    if random_tiers:
+        rng = np.random.RandomState(client_id)
+        return rng.choice([1, 2, 3], p=[0.2, 0.4, 0.4])
+    return TIER_DISTRIBUTION[client_id % len(TIER_DISTRIBUTION)]
 
 
 def compute_update_size(weights):
-    """Calculate the size of model weights in bytes."""
     total_bytes = 0
     for w in weights:
         total_bytes += w.nbytes
@@ -93,7 +86,7 @@ class FLClient(fl.client.NumPyClient):
         return self.model.get_weights()
 
     def fit(self, parameters, config):
-        # ── Simulate Dropout ─────────────────────────────────────
+        # ── Simulate Dropout (instant return, no training) ───────
         if self.simulate_dropout:
             dropout_prob = self.tier_config["dropout_prob"]
             if np.random.random() < dropout_prob:
@@ -101,11 +94,8 @@ class FLClient(fl.client.NumPyClient):
                 print(f"[Client {self.client_id}] DROPOUT — simulating "
                       f"connection failure (Tier {self.tier}, "
                       f"p={dropout_prob})")
-                # Simulate timeout by sleeping longer than round_timeout
-                # The server will move on without this client
-                time.sleep(150)
-                # Return stale weights (won't be used due to timeout)
-                return self.model.get_weights(), len(self.x_train), {}
+                # Return stale weights with 0 examples = server knows this is a drop
+                return self.model.get_weights(), 0, {"dropped": True}
 
         self.rounds_participated += 1
         self.model.set_weights(parameters)
@@ -119,11 +109,9 @@ class FLClient(fl.client.NumPyClient):
 
         updated_weights = self.model.get_weights()
 
-        # ── Communication Metrics ────────────────────────────────
         update_size_bytes = compute_update_size(updated_weights)
         update_size_kb = update_size_bytes / 1024
-        update_size_mb = update_size_kb / 1024
-        print(f"[Client {self.client_id}] Update size: {update_size_kb:.1f} KB ({update_size_mb:.3f} MB)")
+        print(f"[Client {self.client_id}] Update size: {update_size_kb:.1f} KB")
 
         if self.blockchain:
             try:
@@ -138,8 +126,10 @@ class FLClient(fl.client.NumPyClient):
 
         return updated_weights, len(self.x_train), {
             "tier": self.tier,
+            "tier_name": self.tier_config["name"],
             "epochs": self.tier_config["epochs"],
             "batch_size": self.tier_config["batch_size"],
+            "data_fraction": self.tier_config["data_fraction"],
             "update_size_bytes": update_size_bytes,
         }
 
@@ -152,10 +142,10 @@ class FLClient(fl.client.NumPyClient):
 
 
 def start_client(client_id=0, num_clients=5, server_address="127.0.0.1:9090",
-                 simulate_dropout=True):
+                 simulate_dropout=True, random_tiers=False):
     print(f"Starting Client {client_id}...")
 
-    tier = assign_tier(client_id, num_clients)
+    tier = assign_tier(client_id, num_clients, random_tiers=random_tiers)
 
     X, y = load_and_preprocess()
     partitions = partition_data(X, y, num_clients=num_clients)
@@ -192,10 +182,10 @@ def start_client(client_id=0, num_clients=5, server_address="127.0.0.1:9090",
         client=client
     )
 
-    # Print client dropout summary
     total_rounds = client.rounds_participated + client.rounds_dropped
     if total_rounds > 0:
         print(f"\n[Client {client_id}] Session Summary:")
+        print(f"  Tier: {tier} ({DEVICE_TIERS[tier]['name']})")
         print(f"  Participated: {client.rounds_participated}/{total_rounds} rounds")
         print(f"  Dropped out:  {client.rounds_dropped}/{total_rounds} rounds")
 
@@ -203,7 +193,7 @@ def start_client(client_id=0, num_clients=5, server_address="127.0.0.1:9090",
 if __name__ == '__main__':
     client_id = int(sys.argv[1]) if len(sys.argv) > 1 else 0
     num_clients = int(sys.argv[2]) if len(sys.argv) > 2 else 5
-    # Pass --no-dropout to disable dropout simulation
     simulate_dropout = '--no-dropout' not in sys.argv
+    random_tiers = '--random-tiers' in sys.argv
     start_client(client_id=client_id, num_clients=num_clients,
-                 simulate_dropout=simulate_dropout)
+                 simulate_dropout=simulate_dropout, random_tiers=random_tiers)

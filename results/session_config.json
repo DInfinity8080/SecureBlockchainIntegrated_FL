@@ -1,0 +1,12 @@
+{
+  "session_id": "20260306_182926",
+  "timestamp": "2026-03-06T18:29:58.826153",
+  "num_clients": 10,
+  "num_rounds": 5,
+  "z_threshold": 1.5,
+  "fraction_fit": 0.7,
+  "fraction_evaluate": 1.0,
+  "min_fit_clients": 3,
+  "round_timeout": 45,
+  "total_time_s": 32.71
+}
