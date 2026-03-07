@@ -1,6 +1,5 @@
+from gpu_config import DEVICE_NAME  # auto-configures GPU/Metal/CPU
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
-
 
 import flwr as fl
 import tensorflow as tf

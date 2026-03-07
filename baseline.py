@@ -10,8 +10,8 @@ Usage:
     python baseline.py 10    # train for 10 epochs
 """
 
+from gpu_config import DEVICE_NAME  # auto-configures GPU/Metal/CPU
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
 import numpy as np
 import csv

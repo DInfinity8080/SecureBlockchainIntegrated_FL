@@ -1,5 +1,5 @@
+from gpu_config import DEVICE_NAME  # auto-configures GPU/Metal/CPU
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
 import flwr as fl
 import tensorflow as tf
@@ -82,6 +82,7 @@ class FLClient(fl.client.NumPyClient):
         self.rounds_dropped = 0
 
         print(f"[Client {client_id}] Tier {tier}: {self.tier_config['name']}")
+        print(f"  Compute device: {DEVICE_NAME}")
         print(f"  Epochs: {self.tier_config['epochs']}, "
               f"Batch: {self.tier_config['batch_size']}, "
               f"Data fraction: {self.tier_config['data_fraction']}, "

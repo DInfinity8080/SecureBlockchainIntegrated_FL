@@ -1,5 +1,4 @@
-import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+from gpu_config import DEVICE_NAME  # auto-configures GPU/Metal/CPU
 
 import tensorflow as tf
 import numpy as np
