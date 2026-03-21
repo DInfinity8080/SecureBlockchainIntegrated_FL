@@ -1,9 +1,13 @@
 venv/
+.venv/
+.DS_Store
 node_modules/
 build/
 __pycache__/
 *.pyc
 .env
-venv/
+.claude/
 ecgDataset/
 logs/
+results/
+experiment_results/

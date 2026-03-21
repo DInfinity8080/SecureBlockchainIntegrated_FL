@@ -44,6 +44,13 @@ def get_tier_for_client(client_id):
     return TIER_DISTRIBUTION[client_id % len(TIER_DISTRIBUTION)]
 
 
+def weighted_average(metrics):
+    """Aggregate evaluate metrics from clients using weighted average."""
+    accuracies = [num_examples * m["accuracy"] for num_examples, m in metrics]
+    examples = [num_examples for num_examples, _ in metrics]
+    return {"accuracy": sum(accuracies) / sum(examples) if sum(examples) > 0 else 0}
+
+
 class SecureFedAvg(fl.server.strategy.FedAvg):
     def __init__(self, blockchain, poisoning_detector, num_clients_expected, **kwargs):
         super().__init__(**kwargs)
@@ -59,6 +66,7 @@ class SecureFedAvg(fl.server.strategy.FedAvg):
         self.reputation_history = []
         self.comm_log = []
         self.participation_log = []
+        self.accuracy_log = []
 
         self.session_start = time.time()
         self.session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -86,6 +94,47 @@ class SecureFedAvg(fl.server.strategy.FedAvg):
         if new_registrations > 0:
             print(f"Registered {new_registrations} new devices on blockchain "
                   f"({len(self.client_account_map)} total)")
+
+    def aggregate_evaluate(self, server_round, results, failures):
+        """Override to capture per-round accuracy from client evaluations."""
+        if not results:
+            return None, {}
+
+        # Results are List[Tuple[ClientProxy, EvaluateRes]]
+        # EvaluateRes has: .loss, .num_examples, .metrics
+
+        # Compute weighted average loss
+        total_examples = sum(eval_res.num_examples for _, eval_res in results)
+        loss_aggregated = sum(
+            eval_res.num_examples * eval_res.loss for _, eval_res in results
+        ) / total_examples if total_examples > 0 else 0.0
+
+        # Compute weighted average accuracy from client metrics
+        acc_weighted_sum = 0.0
+        acc_total_examples = 0
+        for _, eval_res in results:
+            metrics = eval_res.metrics if eval_res.metrics else {}
+            if "accuracy" in metrics:
+                acc_weighted_sum += eval_res.num_examples * metrics["accuracy"]
+                acc_total_examples += eval_res.num_examples
+
+        avg_accuracy = acc_weighted_sum / acc_total_examples if acc_total_examples > 0 else 0.0
+
+        self.accuracy_log.append({
+            'session_id': self.session_id,
+            'round': server_round,
+            'distributed_loss': round(loss_aggregated, 6),
+            'distributed_accuracy': round(avg_accuracy, 6),
+            'num_clients_evaluated': len(results),
+        })
+
+        print(f"[Round {server_round}] Distributed Loss: {loss_aggregated:.4f} | "
+              f"Accuracy: {avg_accuracy:.4f} ({len(results)} clients)")
+
+        # Build aggregated metrics
+        metrics_aggregated = {"accuracy": avg_accuracy}
+
+        return loss_aggregated, metrics_aggregated
 
     def aggregate_fit(self, server_round, results, failures):
         if not results:
@@ -305,6 +354,14 @@ class SecureFedAvg(fl.server.strategy.FedAvg):
 
         round_time = time.time() - round_start
 
+        # Get accuracy from the most recent evaluation round
+        round_accuracy = None
+        round_loss = None
+        for acc_entry in self.accuracy_log:
+            if acc_entry['round'] == server_round - 1 or acc_entry['round'] == server_round:
+                round_accuracy = acc_entry['distributed_accuracy']
+                round_loss = acc_entry['distributed_loss']
+
         self.round_summary_log.append({
             'session_id': self.session_id,
             'round': server_round,
@@ -315,6 +372,8 @@ class SecureFedAvg(fl.server.strategy.FedAvg):
             'poisoned_client_ids': str(poisoned_ids),
             'total_comm_bytes': total_round_bytes,
             'round_time_s': round(round_time, 2),
+            'distributed_loss': round_loss,
+            'distributed_accuracy': round_accuracy,
         })
 
         return ndarrays_to_parameters(aggregated), {}
@@ -358,6 +417,7 @@ class SecureFedAvg(fl.server.strategy.FedAvg):
         self._save_csv(os.path.join(RESULTS_DIR, "reputation_history.csv"), self.reputation_history)
         self._save_csv(os.path.join(RESULTS_DIR, "communication_metrics.csv"), self.comm_log)
         self._save_csv(os.path.join(RESULTS_DIR, "participation_metrics.csv"), self.participation_log)
+        self._save_csv(os.path.join(RESULTS_DIR, "accuracy_metrics.csv"), self.accuracy_log)
 
         rep_rows = []
         for client_id, account_idx in sorted(self.client_account_map.items()):
@@ -421,6 +481,27 @@ class SecureFedAvg(fl.server.strategy.FedAvg):
             extra = f" ({', '.join(parts)})" if parts else ""
             print(f"║  Round {r}: {n:>2} clients, {t:.1f}s{extra}".ljust(59) + "║")
 
+        # Accuracy & Loss
+        print("╠" + "═" * 58 + "╣")
+        print("║" + "  MODEL ACCURACY & LOSS".center(58) + "║")
+        print("║" + "  " + "-" * 54 + "  ║")
+        if self.accuracy_log:
+            for entry in self.accuracy_log:
+                r = entry['round']
+                acc = entry['distributed_accuracy']
+                loss = entry['distributed_loss']
+                print(f"║  Round {r:>2}: Acc {acc:.4f} | Loss {loss:.4f}".ljust(59) + "║")
+            final_acc = self.accuracy_log[-1]['distributed_accuracy']
+            final_loss = self.accuracy_log[-1]['distributed_loss']
+            first_acc = self.accuracy_log[0]['distributed_accuracy']
+            improvement = final_acc - first_acc
+            print("║" + " " * 58 + "║")
+            print(f"║  Final Accuracy:           {final_acc:.4f} ({final_acc*100:.2f}%)".ljust(59) + "║")
+            print(f"║  Final Loss:               {final_loss:.4f}".ljust(59) + "║")
+            print(f"║  Accuracy Improvement:     +{improvement:.4f} over {len(self.accuracy_log)} rounds".ljust(59) + "║")
+        else:
+            print("║  No accuracy data collected".ljust(59) + "║")
+
         # Communication
         print("╠" + "═" * 58 + "╣")
         print("║" + "  COMMUNICATION METRICS".center(58) + "║")
@@ -476,10 +557,10 @@ class SecureFedAvg(fl.server.strategy.FedAvg):
         print("║" + "  " + "-" * 54 + "  ║")
         files = [
             "session_config.json", "client_tiers.csv",
-            "round_summary.csv", "client_round_details.csv",
-            "poisoning_detection.csv", "reputation_history.csv",
-            "communication_metrics.csv", "participation_metrics.csv",
-            "final_reputations.csv",
+            "round_summary.csv", "accuracy_metrics.csv",
+            "client_round_details.csv", "poisoning_detection.csv",
+            "reputation_history.csv", "communication_metrics.csv",
+            "participation_metrics.csv", "final_reputations.csv",
         ]
         for f in files:
             print(f"║  {RESULTS_DIR}/{f}".ljust(59) + "║")
@@ -525,16 +606,18 @@ def start_server(num_rounds=NUM_ROUNDS, num_clients=NUM_CLIENTS):
             min_evaluate_clients=num_clients,
             min_available_clients=num_clients,
             initial_parameters=initial_parameters,
+            evaluate_metrics_aggregation_fn=weighted_average,
         )
     else:
         strategy = fl.server.strategy.FedAvg(
-    fraction_fit=FRACTION_FIT,
-    fraction_evaluate=FRACTION_EVALUATE,
-    min_fit_clients=MIN_FIT_CLIENTS,
-    min_evaluate_clients=MIN_EVALUATE_CLIENTS,
-    min_available_clients=MIN_FIT_CLIENTS,
-    initial_parameters=initial_parameters,
-)
+            fraction_fit=FRACTION_FIT,
+            fraction_evaluate=FRACTION_EVALUATE,
+            min_fit_clients=MIN_FIT_CLIENTS,
+            min_evaluate_clients=MIN_EVALUATE_CLIENTS,
+            min_available_clients=MIN_FIT_CLIENTS,
+            initial_parameters=initial_parameters,
+            evaluate_metrics_aggregation_fn=weighted_average,
+        )
 
     start_time = time.time()
 
