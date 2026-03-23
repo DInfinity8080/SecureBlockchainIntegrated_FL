@@ -1,13 +1,30 @@
+# Python
 venv/
 .venv/
-.DS_Store
-node_modules/
-build/
 __pycache__/
 *.pyc
+*.pyo
+
+# Node / Blockchain
+node_modules/
+build/
+
+# Environment
 .env
 .claude/
-ecgDataset/
+.DS_Store
+
+# Logs & runtime output
 logs/
+data/
+
+# Results
 results/
 experiment_results/
+communication_metrics.csv
+participation_metrics.csv
+reputation_scores.csv
+baseline_results.csv
+
+# Dataset (too large for git)
+ecgDataset/
