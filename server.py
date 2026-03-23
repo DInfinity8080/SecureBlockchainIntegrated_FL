@@ -1,5 +1,5 @@
+from gpu_config import DEVICE_NAME  # auto-configures GPU/Metal/CPU
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
 import flwr as fl
 from flwr.common import parameters_to_ndarrays, ndarrays_to_parameters, FitRes, Parameters
@@ -595,26 +595,29 @@ def start_server(num_rounds=NUM_ROUNDS, num_clients=NUM_CLIENTS):
     detector = PoisoningDetector(z_threshold=Z_THRESHOLD)
     strategy = None
 
+    # Allow training to proceed if at least 80% of clients connect
+    min_required = max(3, int(num_clients * 0.8))
+
     if blockchain:
         strategy = SecureFedAvg(
             blockchain=blockchain,
             poisoning_detector=detector,
             num_clients_expected=num_clients,
-            fraction_fit=FRACTION_FIT,
-            fraction_evaluate=FRACTION_EVALUATE,
-            min_fit_clients=num_clients,
-            min_evaluate_clients=num_clients,
-            min_available_clients=num_clients,
+            fraction_fit=1.0,
+            fraction_evaluate=1.0,
+            min_fit_clients=min_required,
+            min_evaluate_clients=min_required,
+            min_available_clients=min_required,
             initial_parameters=initial_parameters,
             evaluate_metrics_aggregation_fn=weighted_average,
         )
     else:
         strategy = fl.server.strategy.FedAvg(
-            fraction_fit=FRACTION_FIT,
-            fraction_evaluate=FRACTION_EVALUATE,
-            min_fit_clients=MIN_FIT_CLIENTS,
-            min_evaluate_clients=MIN_EVALUATE_CLIENTS,
-            min_available_clients=MIN_FIT_CLIENTS,
+            fraction_fit=1.0,
+            fraction_evaluate=1.0,
+            min_fit_clients=min_required,
+            min_evaluate_clients=min_required,
+            min_available_clients=min_required,
             initial_parameters=initial_parameters,
             evaluate_metrics_aggregation_fn=weighted_average,
         )

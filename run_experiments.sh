@@ -76,16 +76,16 @@ for NUM_ROUNDS in "${ROUND_CONFIGS[@]}"; do
 
         # ── Step 1: Kill old processes ───────────────────────────────
         echo "[1/6] Cleaning up old processes..."
-        pkill -f 'python client.py' 2>/dev/null
-        pkill -f 'python server.py' 2>/dev/null
-        pkill -f 'ganache' 2>/dev/null
+        pkill -9 -f 'python client.py' 2>/dev/null
+        pkill -9 -f 'python server.py' 2>/dev/null
+        pkill -9 -f 'ganache' 2>/dev/null
         for port in 7545 9090; do
             pid=$(lsof -ti :$port 2>/dev/null)
             if [ -n "$pid" ]; then
                 kill -9 $pid 2>/dev/null
             fi
         done
-        sleep 2
+        sleep 3
         echo "  Done."
 
         # ── Step 2: Start Ganache ────────────────────────────────────
@@ -135,14 +135,27 @@ for NUM_ROUNDS in "${ROUND_CONFIGS[@]}"; do
         echo "[5/6] Launching $NUM_CLIENTS clients..."
         for ((i=0; i<NUM_CLIENTS; i++)); do
             python client.py $i $NUM_CLIENTS $DROPOUT_FLAG > "$RUN_DIR/client_${i}.log" 2>&1 &
-            sleep 0.3
+            sleep 0.5
         done
         echo "  All $NUM_CLIENTS clients launched."
 
-        # ── Wait for server to finish ────────────────────────────────
+        # ── Wait for server to finish (with timeout) ─────────────────
+        # Max 5 minutes per experiment to avoid infinite hangs
+        MAX_WAIT=300
         echo ""
-        echo "  Waiting for training to complete..."
-        wait $SERVER_PID 2>/dev/null
+        echo "  Waiting for training to complete (timeout: ${MAX_WAIT}s)..."
+        WAIT_START=$(date +%s)
+        while kill -0 $SERVER_PID 2>/dev/null; do
+            ELAPSED=$(( $(date +%s) - WAIT_START ))
+            if [ $ELAPSED -ge $MAX_WAIT ]; then
+                echo "  TIMEOUT: Experiment exceeded ${MAX_WAIT}s — killing..."
+                kill -9 $SERVER_PID 2>/dev/null
+                pkill -9 -f 'python client.py' 2>/dev/null
+                FAILED=$((FAILED + 1))
+                break
+            fi
+            sleep 2
+        done
 
         # ── Step 6: Collect results ──────────────────────────────────
         echo ""
@@ -160,9 +173,10 @@ for NUM_ROUNDS in "${ROUND_CONFIGS[@]}"; do
         tail -80 "$RUN_DIR/server.log" > "$RUN_DIR/session_report.txt" 2>/dev/null
 
         # Cleanup
-        kill $GANACHE_PID 2>/dev/null
-        pkill -f 'python client.py' 2>/dev/null
-        sleep 2
+        kill -9 $GANACHE_PID 2>/dev/null
+        pkill -9 -f 'python client.py' 2>/dev/null
+        pkill -9 -f 'python server.py' 2>/dev/null
+        sleep 3
 
         RUN_END=$(date +%s)
         RUN_TIME=$((RUN_END - RUN_START))

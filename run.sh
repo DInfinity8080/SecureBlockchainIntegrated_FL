@@ -31,12 +31,12 @@ echo ""
 
 # ── Step 1: Kill old processes ───────────────────────────────
 echo "[1/5] Cleaning up old processes..."
-pkill -f 'python client.py' 2>/dev/null
-pkill -f 'python server.py' 2>/dev/null
-pkill -f 'ganache' 2>/dev/null
-# Kill anything still holding ports 7545 and 9090 (macOS-compatible)
+pkill -9 -f 'client\.py' 2>/dev/null
+pkill -9 -f 'server\.py' 2>/dev/null
+pkill -9 -f 'ganache' 2>/dev/null
+# Kill anything still holding ports 7545 and 9090
 for port in 7545 9090; do
-    pid=$(lsof -ti :$port 2>/dev/null)
+    pid=$(lsof -ti :$port 2>/dev/null || fuser $port/tcp 2>/dev/null)
     if [ -n "$pid" ]; then
         kill -9 $pid 2>/dev/null
     fi
