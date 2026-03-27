@@ -1,6 +1,7 @@
 import json
 import hashlib
 from web3 import Web3
+from crypto_utils import get_ganache_private_keys
 
 class BlockchainHelper:
     def __init__(self, ganache_url='http://127.0.0.1:7545', contract_address=None):
@@ -34,8 +35,10 @@ class BlockchainHelper:
 
         self.accounts = self.w3.eth.accounts
         self.registered = set()
+        self.private_keys = get_ganache_private_keys(ganache_url)
         print(f"Contract at: {self.contract_address}")
         print(f"Available accounts: {len(self.accounts)}")
+        print(f"Private keys loaded: {len(self.private_keys)}")
 
     def ensure_registered(self, account_index, device_id=None):
         if account_index in self.registered:
@@ -59,11 +62,31 @@ class BlockchainHelper:
     def register_device(self, device_id, account_index=0):
         self.ensure_registered(account_index, device_id)
 
-    def submit_model_update(self, model_weights, accuracy, account_index=0):
+    def get_private_key(self, account_index):
+        """Retrieve the private key for a given account index."""
+        return self.private_keys.get(account_index, None)
+
+    def submit_model_update(self, model_weights, accuracy, account_index=0, signature=None):
         self.ensure_registered(account_index)
         model_hash = self._hash_weights(model_weights)
         account = self.accounts[account_index]
         accuracy_int = int(accuracy * 100)
+
+        if signature:
+            # Use the signed submission method
+            sig_bytes = bytes.fromhex(signature if not signature.startswith('0x') else signature[2:])
+            try:
+                tx = self.contract.functions.submitSignedModelUpdate(
+                    model_hash, accuracy_int, sig_bytes
+                ).transact({
+                    'from': account,
+                    'gas': 500000
+                })
+                receipt = self.w3.eth.wait_for_transaction_receipt(tx)
+                print(f"Signed model update submitted | Hash: {model_hash[:16]}... | Accuracy: {accuracy:.4f}")
+                return receipt, model_hash
+            except Exception as e:
+                print(f"Signed submission failed ({e}), falling back to unsigned")
 
         tx = self.contract.functions.submitModelUpdate(
             model_hash, accuracy_int

@@ -18,6 +18,8 @@ contract FederatedLearning {
         uint256 timestamp;
         bool validated;
         uint256 accuracy;
+        bytes signature;
+        bool signatureVerified;
     }
     
     address public owner;
@@ -76,13 +78,64 @@ contract FederatedLearning {
             round: currentRound,
             timestamp: block.timestamp,
             validated: false,
-            accuracy: _accuracy
+            accuracy: _accuracy,
+            signature: "",
+            signatureVerified: false
         });
-        
+
         roundUpdates[currentRound].push(update);
         devices[msg.sender].totalContributions++;
-        
+
         emit ModelUpdateSubmitted(msg.sender, currentRound, _modelHash);
+    }
+
+    function submitSignedModelUpdate(
+        string memory _modelHash,
+        uint256 _accuracy,
+        bytes memory _signature
+    ) public onlyRegistered {
+        // Verify the signature matches msg.sender
+        bytes32 messageHash = keccak256(abi.encodePacked(_modelHash));
+        bytes32 ethSignedHash = keccak256(
+            abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash)
+        );
+
+        address recovered = recoverSigner(ethSignedHash, _signature);
+        require(recovered == msg.sender, "Invalid signature: signer does not match sender");
+
+        ModelUpdate memory update = ModelUpdate({
+            contributor: msg.sender,
+            modelHash: _modelHash,
+            round: currentRound,
+            timestamp: block.timestamp,
+            validated: false,
+            accuracy: _accuracy,
+            signature: _signature,
+            signatureVerified: true
+        });
+
+        roundUpdates[currentRound].push(update);
+        devices[msg.sender].totalContributions++;
+
+        emit ModelUpdateSubmitted(msg.sender, currentRound, _modelHash);
+    }
+
+    function recoverSigner(bytes32 _ethSignedHash, bytes memory _signature)
+        internal pure returns (address)
+    {
+        require(_signature.length == 65, "Invalid signature length");
+        bytes32 r;
+        bytes32 s;
+        uint8 v;
+        assembly {
+            r := mload(add(_signature, 32))
+            s := mload(add(_signature, 64))
+            v := byte(0, mload(add(_signature, 96)))
+        }
+        if (v < 27) {
+            v += 27;
+        }
+        return ecrecover(_ethSignedHash, v, r, s);
     }
     
     function validateUpdate(address _device, uint256 _round, bool _passed) public onlyOwner {

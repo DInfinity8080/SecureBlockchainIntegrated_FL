@@ -48,7 +48,7 @@ echo "  Done."
 GANACHE_ACCOUNTS=$((NUM_CLIENTS + 5))
 echo ""
 echo "[2/5] Starting Ganache (port 7545, $GANACHE_ACCOUNTS accounts)..."
-ganache --port 7545 --accounts $GANACHE_ACCOUNTS > "$LOG_DIR/ganache.log" 2>&1 &
+ganache --port 7545 --accounts $GANACHE_ACCOUNTS --wallet.deterministic > "$LOG_DIR/ganache.log" 2>&1 &
 GANACHE_PID=$!
 sleep 3
 

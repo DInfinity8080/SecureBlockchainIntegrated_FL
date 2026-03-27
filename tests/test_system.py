@@ -18,6 +18,7 @@ from model import create_model
 from data_loader import load_and_preprocess, partition_data, ATTACK_MAP, CLASS_MAP
 from poisoning_detector import PoisoningDetector
 from client import DEVICE_TIERS, assign_tier, compute_update_size
+from crypto_utils import CryptoManager
 
 
 class TestModel(unittest.TestCase):
@@ -191,6 +192,126 @@ class TestClientUtilities(unittest.TestCase):
         self.assertGreater(DEVICE_TIERS[2]['epochs'], DEVICE_TIERS[3]['epochs'])
 
 
+class TestCryptoUtils(unittest.TestCase):
+    """Tests for ECDSA signing/verification and AES-GCM encryption."""
+
+    def setUp(self):
+        # Use a known test private key (Ganache default account 0)
+        self.private_key = "0x4f3edf983ac636a65a842ce7c78d9aa706d3b113bce9c46f30d7d21715b23b1d"
+        self.crypto = CryptoManager(self.private_key)
+
+    def test_address_derivation(self):
+        """CryptoManager should derive a valid Ethereum address from the private key."""
+        address = self.crypto.get_address()
+        self.assertTrue(address.startswith('0x'))
+        self.assertEqual(len(address), 42)
+
+    def test_sign_and_verify(self):
+        """Signing weights and verifying should succeed with correct address."""
+        weights = [np.ones((41, 128), dtype=np.float32)]
+        hash_hex, signature = self.crypto.sign_weights(weights)
+        self.assertEqual(len(hash_hex), 64)
+        self.assertTrue(
+            CryptoManager.verify_signature(hash_hex, signature, self.crypto.get_address())
+        )
+
+    def test_verify_wrong_hash_fails(self):
+        """Verification should fail if the hash is tampered with."""
+        weights = [np.ones((41, 128), dtype=np.float32)]
+        _, signature = self.crypto.sign_weights(weights)
+        fake_hash = "a" * 64
+        self.assertFalse(
+            CryptoManager.verify_signature(fake_hash, signature, self.crypto.get_address())
+        )
+
+    def test_verify_wrong_address_fails(self):
+        """Verification should fail if checked against a different address."""
+        weights = [np.ones((41, 128), dtype=np.float32)]
+        hash_hex, signature = self.crypto.sign_weights(weights)
+        fake_address = "0x0000000000000000000000000000000000000001"
+        self.assertFalse(
+            CryptoManager.verify_signature(hash_hex, signature, fake_address)
+        )
+
+    def test_different_weights_different_hash(self):
+        """Different weights should produce different hashes."""
+        w1 = [np.ones((10, 10), dtype=np.float32)]
+        w2 = [np.zeros((10, 10), dtype=np.float32)]
+        h1 = CryptoManager.hash_weights(w1)
+        h2 = CryptoManager.hash_weights(w2)
+        self.assertNotEqual(h1, h2)
+
+    def test_sign_multi_layer_weights(self):
+        """Signing should work with multiple weight arrays (like a real model)."""
+        weights = [
+            np.random.randn(41, 128).astype(np.float32),
+            np.random.randn(128).astype(np.float32),
+            np.random.randn(128, 64).astype(np.float32),
+            np.random.randn(64).astype(np.float32),
+        ]
+        hash_hex, signature = self.crypto.sign_weights(weights)
+        self.assertTrue(
+            CryptoManager.verify_signature(hash_hex, signature, self.crypto.get_address())
+        )
+
+    def test_two_different_keys_different_signatures(self):
+        """Two different keys should produce different signatures for same weights."""
+        key2 = "0x6cbed15c793ce57650b9877cf6fa156fbef513c4e6134f022a85b1ffdd59b2a1"
+        crypto2 = CryptoManager(key2)
+        weights = [np.ones((10, 10), dtype=np.float32)]
+
+        _, sig1 = self.crypto.sign_weights(weights)
+        _, sig2 = crypto2.sign_weights(weights)
+        self.assertNotEqual(sig1, sig2)
+
+        # Each should verify against their own address only
+        hash_hex = CryptoManager.hash_weights(weights)
+        self.assertTrue(CryptoManager.verify_signature(hash_hex, sig1, self.crypto.get_address()))
+        self.assertFalse(CryptoManager.verify_signature(hash_hex, sig1, crypto2.get_address()))
+
+    def test_aes_encrypt_decrypt(self):
+        """AES-GCM encrypt then decrypt should return original weights."""
+        weights = [
+            np.random.randn(41, 128).astype(np.float32),
+            np.random.randn(128).astype(np.float32),
+        ]
+        aes_key = CryptoManager.generate_aes_key()
+        shapes, dtypes = CryptoManager.get_weight_metadata(weights)
+
+        nonce, ciphertext = CryptoManager.encrypt_weights(weights, aes_key)
+        decrypted = CryptoManager.decrypt_weights(
+            nonce, ciphertext, aes_key,
+            shapes, [np.dtype(d) for d in dtypes]
+        )
+
+        self.assertEqual(len(decrypted), len(weights))
+        for orig, dec in zip(weights, decrypted):
+            np.testing.assert_array_equal(orig, dec)
+
+    def test_aes_wrong_key_fails(self):
+        """Decryption with wrong key should raise an error."""
+        from cryptography.exceptions import InvalidTag
+        weights = [np.ones((10, 10), dtype=np.float32)]
+        key1 = CryptoManager.generate_aes_key()
+        key2 = CryptoManager.generate_aes_key()
+        shapes, dtypes = CryptoManager.get_weight_metadata(weights)
+
+        nonce, ciphertext = CryptoManager.encrypt_weights(weights, key1)
+        with self.assertRaises(InvalidTag):
+            CryptoManager.decrypt_weights(nonce, ciphertext, key2,
+                                          shapes, [np.dtype(d) for d in dtypes])
+
+    def test_hash_weights_matches_blockchain_helper(self):
+        """CryptoManager.hash_weights should produce same result as BlockchainHelper._hash_weights."""
+        from blockchain_helper import BlockchainHelper
+        weights = [np.random.randn(41, 128).astype(np.float32)]
+        bh = BlockchainHelper.__new__(BlockchainHelper)
+        self.assertEqual(
+            CryptoManager.hash_weights(weights),
+            bh._hash_weights(weights)
+        )
+
+
 class TestBlockchainHelper(unittest.TestCase):
     def test_import(self):
         from blockchain_helper import BlockchainHelper
@@ -346,6 +467,7 @@ if __name__ == '__main__':
         'Data Loader':        TestDataLoader,
         'Poisoning Detector': TestPoisoningDetector,
         'Client Utilities':   TestClientUtilities,
+        'Crypto Utils':       TestCryptoUtils,
         'Blockchain Helper':  TestBlockchainHelper,
         'Attack Simulator':   TestAttackSimulator,
     }

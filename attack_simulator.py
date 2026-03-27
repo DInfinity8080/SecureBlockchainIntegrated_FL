@@ -9,11 +9,12 @@ from model import create_model
 from data_loader import load_and_preprocess, partition_data
 from blockchain_helper import BlockchainHelper
 from client import DEVICE_TIERS, assign_tier
+from crypto_utils import CryptoManager
 
 
 class MaliciousClient(fl.client.NumPyClient):
     def __init__(self, client_id, x_train, y_train, x_test, y_test,
-                 blockchain=None, attack_type='label_flip', tier=2):
+                 blockchain=None, attack_type='label_flip', tier=2, crypto=None):
         self.client_id = client_id
         self.tier = tier
         self.tier_config = DEVICE_TIERS[tier]
@@ -27,6 +28,7 @@ class MaliciousClient(fl.client.NumPyClient):
         )
         self.blockchain = blockchain
         self.attack_type = attack_type
+        self.crypto = crypto
 
         # Poison the training data
         if attack_type == 'label_flip':
@@ -58,20 +60,34 @@ class MaliciousClient(fl.client.NumPyClient):
             diff = [new - old for new, old in zip(updated_weights, parameters)]
             updated_weights = [old + 10.0 * d for old, d in zip(parameters, diff)]
 
+        # Sign weights with ECDSA
+        crypto_metrics = {}
+        signature = None
+        if self.crypto:
+            weight_hash, signature = self.crypto.sign_weights(updated_weights)
+            crypto_metrics = {
+                "weight_hash": weight_hash,
+                "signature": signature,
+                "client_address": self.crypto.get_address(),
+            }
+
         if self.blockchain:
             try:
                 _, accuracy = self.model.evaluate(self.x_test, self.y_test, verbose=0)
                 self.blockchain.submit_model_update(
                     updated_weights, accuracy,
-                    account_index=self.client_id + 1
+                    account_index=self.client_id + 1,
+                    signature=signature
                 )
             except Exception as e:
                 print(f"[ATTACKER {self.client_id}] Blockchain error: {e}")
 
-        return updated_weights, len(self.x_train), {
+        metrics = {
             "tier": self.tier,
             "attack_type": self.attack_type,
         }
+        metrics.update(crypto_metrics)
+        return updated_weights, len(self.x_train), metrics
 
     def evaluate(self, parameters, config):
         self.model.set_weights(parameters)
@@ -111,9 +127,15 @@ def start_malicious_client(client_id=0, attack_type='label_flip',
         print(f"Blockchain error: {e}")
         blockchain = None
 
+    crypto = None
+    if blockchain:
+        private_key = blockchain.get_private_key(client_id + 1)
+        if private_key:
+            crypto = CryptoManager(private_key)
+
     client = MaliciousClient(
         client_id, x_train, y_train, x_test, y_test,
-        blockchain, attack_type, tier=tier
+        blockchain, attack_type, tier=tier, crypto=crypto
     )
 
     fl.client.start_numpy_client(

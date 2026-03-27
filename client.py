@@ -9,6 +9,7 @@ import time
 from model import create_model
 from data_loader import load_and_preprocess, partition_data
 from blockchain_helper import BlockchainHelper
+from crypto_utils import CryptoManager
 
 # ── Device Tier Definitions ──────────────────────────────────────
 DEVICE_TIERS = {
@@ -61,7 +62,7 @@ def compute_update_size(weights):
 
 class FLClient(fl.client.NumPyClient):
     def __init__(self, client_id, x_train, y_train, x_test, y_test,
-                 blockchain=None, tier=2, simulate_dropout=True):
+                 blockchain=None, tier=2, simulate_dropout=True, crypto=None):
         self.client_id = client_id
         self.tier = tier
         self.tier_config = DEVICE_TIERS[tier]
@@ -75,6 +76,7 @@ class FLClient(fl.client.NumPyClient):
         )
         self.blockchain = blockchain
         self.simulate_dropout = simulate_dropout
+        self.crypto = crypto
         self.rounds_participated = 0
         self.rounds_dropped = 0
 
@@ -85,6 +87,8 @@ class FLClient(fl.client.NumPyClient):
               f"Data fraction: {self.tier_config['data_fraction']}, "
               f"LR: {self.tier_config['learning_rate']}")
         print(f"  Dropout probability: {self.tier_config['dropout_prob']}")
+        if self.crypto:
+            print(f"  Crypto: ECDSA signing enabled | Address: {self.crypto.get_address()[:12]}...")
         print(f"  Training samples: {len(x_train)}, Test samples: {len(x_test)}")
 
     def get_parameters(self, config):
@@ -126,23 +130,38 @@ class FLClient(fl.client.NumPyClient):
         update_size_mb = update_size_kb / 1024
         print(f"[Client {self.client_id}] Update size: {update_size_kb:.1f} KB ({update_size_mb:.3f} MB)")
 
+        # ── Sign weights with ECDSA ──────────────────────────────
+        crypto_metrics = {}
+        signature = None
+        if self.crypto:
+            weight_hash, signature = self.crypto.sign_weights(updated_weights)
+            crypto_metrics = {
+                "weight_hash": weight_hash,
+                "signature": signature,
+                "client_address": self.crypto.get_address(),
+            }
+            print(f"[Client {self.client_id}] Weights signed | Hash: {weight_hash[:16]}...")
+
         if self.blockchain:
             try:
                 _, accuracy = self.model.evaluate(self.x_test, self.y_test, verbose=0)
                 self.blockchain.submit_model_update(
                     updated_weights, accuracy,
-                    account_index=self.client_id + 1
+                    account_index=self.client_id + 1,
+                    signature=signature
                 )
                 print(f"[Client {self.client_id}] Model update recorded on blockchain")
             except Exception as e:
                 print(f"[Client {self.client_id}] Blockchain error: {e}")
 
-        return updated_weights, len(self.x_train), {
+        metrics = {
             "tier": self.tier,
             "epochs": self.tier_config["epochs"],
             "batch_size": self.tier_config["batch_size"],
             "update_size_bytes": update_size_bytes,
         }
+        metrics.update(crypto_metrics)
+        return updated_weights, len(self.x_train), metrics
 
     def evaluate(self, parameters, config):
         self.model.set_weights(parameters)
@@ -185,8 +204,19 @@ def start_client(client_id=0, num_clients=5, server_address="127.0.0.1:9090",
         print(f"[Client {client_id}] Blockchain error: {e}")
         blockchain = None
 
+    # Initialize cryptographic signing
+    crypto = None
+    if blockchain:
+        private_key = blockchain.get_private_key(client_id + 1)
+        if private_key:
+            crypto = CryptoManager(private_key)
+            print(f"[Client {client_id}] ECDSA signing enabled")
+        else:
+            print(f"[Client {client_id}] WARNING: No private key found, signing disabled")
+
     client = FLClient(client_id, x_train, y_train, x_test, y_test,
-                      blockchain, tier=tier, simulate_dropout=simulate_dropout)
+                      blockchain, tier=tier, simulate_dropout=simulate_dropout,
+                      crypto=crypto)
 
     fl.client.start_numpy_client(
         server_address=server_address,

@@ -1,5 +1,6 @@
 from gpu_config import DEVICE_NAME  # auto-configures GPU/Metal/CPU
 import os
+import hashlib
 
 import flwr as fl
 from flwr.common import parameters_to_ndarrays, ndarrays_to_parameters, FitRes, Parameters
@@ -14,6 +15,7 @@ from model import create_model
 from blockchain_helper import BlockchainHelper
 from poisoning_detector import PoisoningDetector
 from client import DEVICE_TIERS, TIER_DISTRIBUTION
+from crypto_utils import CryptoManager
 
 # ── Configuration ────────────────────────────────────────────────
 NUM_CLIENTS = 10
@@ -95,6 +97,14 @@ class SecureFedAvg(fl.server.strategy.FedAvg):
             print(f"Registered {new_registrations} new devices on blockchain "
                   f"({len(self.client_account_map)} total)")
 
+    @staticmethod
+    def _compute_weight_hash(weights):
+        """Compute SHA-256 hash of model weights for signature verification."""
+        concat = b''
+        for w in weights:
+            concat += w.tobytes()
+        return hashlib.sha256(concat).hexdigest()
+
     def aggregate_evaluate(self, server_round, results, failures):
         """Override to capture per-round accuracy from client evaluations."""
         if not results:
@@ -175,6 +185,52 @@ class SecureFedAvg(fl.server.strategy.FedAvg):
 
         if not active_results:
             print(f"[Round {server_round}] All clients dropped! Skipping.")
+            return None, {}
+
+        # ── Signature Verification ────────────────────────────────
+        verified_results = []
+        sig_verified_count = 0
+        sig_failed_count = 0
+        unsigned_count = 0
+
+        for client_proxy, fit_res in active_results:
+            metrics = fit_res.metrics or {}
+            signature = metrics.get("signature")
+            weight_hash = metrics.get("weight_hash")
+            client_address = metrics.get("client_address")
+
+            if signature and weight_hash and client_address:
+                # Recompute hash from received weights to verify integrity
+                weights = parameters_to_ndarrays(fit_res.parameters)
+                computed_hash = self._compute_weight_hash(weights)
+
+                if computed_hash != weight_hash:
+                    sig_failed_count += 1
+                    print(f"[Round {server_round}] HASH MISMATCH — "
+                          f"rejecting update from {client_address[:12]}...")
+                    continue
+
+                if not CryptoManager.verify_signature(weight_hash, signature, client_address):
+                    sig_failed_count += 1
+                    print(f"[Round {server_round}] INVALID SIGNATURE — "
+                          f"rejecting update from {client_address[:12]}...")
+                    continue
+
+                sig_verified_count += 1
+                verified_results.append((client_proxy, fit_res))
+            else:
+                # Accept unsigned updates with warning (backward compatibility)
+                unsigned_count += 1
+                verified_results.append((client_proxy, fit_res))
+
+        print(f"[Round {server_round}] Signature check: "
+              f"{sig_verified_count} verified, {unsigned_count} unsigned, "
+              f"{sig_failed_count} rejected")
+
+        active_results = verified_results
+
+        if not active_results:
+            print(f"[Round {server_round}] All updates rejected! Skipping.")
             return None, {}
 
         # Register devices
