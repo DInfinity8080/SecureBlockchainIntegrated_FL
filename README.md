@@ -2,7 +2,7 @@
 
 A privacy-preserving distributed machine learning system that combines **Federated Learning** with **Ethereum Blockchain** technology to enable secure, verifiable, and Byzantine-resilient model training across heterogeneous IoT edge devices. The system performs network intrusion detection using the NSL-KDD dataset, with z-score-based poisoning detection, on-chain reputation management, and reputation-weighted aggregation — all validated through **330+ individual experiments** across 66 configurations.
 
-> **Capstone Research Project** — Computer Science Honours (Co-op), University of Windsor  
+> **Research Project**
 > Kapilrajsinh Jadeja, Dev Vinay Patel, Laeya Royan Sadhya  
 > Guided by: Dr. Saeed Sameet | Mentored by: Shahin Zanbaghi  
 > March 2026
