@@ -7,7 +7,7 @@ import numpy as np
 import sys
 import time
 from model import create_model
-from data_loader import load_and_preprocess, partition_data
+from data_loader import load_and_preprocess, partition_data, dirichlet_partition_data
 from blockchain_helper import BlockchainHelper
 
 # ── Device Tier Definitions ──────────────────────────────────────
@@ -115,7 +115,7 @@ class FLClient(fl.client.NumPyClient):
             self.x_train, self.y_train,
             epochs=self.tier_config["epochs"],
             batch_size=self.tier_config["batch_size"],
-            verbose=1
+            verbose=0
         )
 
         updated_weights = self.model.get_weights()
@@ -153,13 +153,17 @@ class FLClient(fl.client.NumPyClient):
 
 
 def start_client(client_id=0, num_clients=5, server_address="127.0.0.1:9090",
-                 simulate_dropout=True):
-    print(f"Starting Client {client_id}...")
+                 simulate_dropout=True, non_iid=False, dirichlet_alpha=0.5):
+    print(f"Starting Client {client_id} ({'non-IID α=' + str(dirichlet_alpha) if non_iid else 'IID'})...")
 
     tier = assign_tier(client_id, num_clients)
 
     X, y = load_and_preprocess()
-    partitions = partition_data(X, y, num_clients=num_clients)
+    if non_iid:
+        partitions = dirichlet_partition_data(X, y, num_clients=num_clients,
+                                              alpha=dirichlet_alpha)
+    else:
+        partitions = partition_data(X, y, num_clients=num_clients)
 
     x_data, y_data = partitions[client_id]
 
@@ -204,7 +208,14 @@ def start_client(client_id=0, num_clients=5, server_address="127.0.0.1:9090",
 if __name__ == '__main__':
     client_id = int(sys.argv[1]) if len(sys.argv) > 1 else 0
     num_clients = int(sys.argv[2]) if len(sys.argv) > 2 else 5
-    # Pass --no-dropout to disable dropout simulation
     simulate_dropout = '--no-dropout' not in sys.argv
+    non_iid = '--non-iid' in sys.argv
+    # Optional: --alpha 0.3 to control Dirichlet concentration
+    alpha = 0.5
+    if '--alpha' in sys.argv:
+        idx = sys.argv.index('--alpha')
+        if idx + 1 < len(sys.argv):
+            alpha = float(sys.argv[idx + 1])
     start_client(client_id=client_id, num_clients=num_clients,
-                 simulate_dropout=simulate_dropout)
+                 simulate_dropout=simulate_dropout,
+                 non_iid=non_iid, dirichlet_alpha=alpha)

@@ -8,15 +8,21 @@
 #   Total runs: 11 clients × 3 round configs = 33 experiments
 #
 #   Usage:
-#     ./run_experiments.sh          # Run all 33 experiments (dropout ON)
-#     ./run_experiments.sh nodrop   # Run all 33 experiments (dropout OFF)
+#     ./run_experiments.sh                          # all honest, dropout ON
+#     ./run_experiments.sh nodrop                   # all honest, dropout OFF
+#     ./run_experiments.sh nodrop label_flip 0.2    # 20% attackers (label flip)
+#     ./run_experiments.sh nodrop scaling 0.3       # 30% attackers (scaling)
+#     ./run_experiments.sh nodrop noise_injection 0.1
+#
+#   Attack types: label_flip | scaling | noise_injection
+#   ATTACK_FRAC : fraction of clients to be malicious (0.0–0.5)
 # ══════════════════════════════════════════════════════════════
 
 ROUND_CONFIGS=(5 7 10)
 MIN_CLIENTS=10
 MAX_CLIENTS=20
 
-# ── Parse nodrop flag ────────────────────────────────────────
+# ── Parse nodrop flag (arg 1) ────────────────────────────────
 DROPOUT_FLAG=""
 DROPOUT_LABEL="enabled"
 BATCH_SUFFIX=""
@@ -24,6 +30,14 @@ if [ "$1" == "nodrop" ]; then
     DROPOUT_FLAG="--no-dropout"
     DROPOUT_LABEL="DISABLED"
     BATCH_SUFFIX="_nodrop"
+fi
+
+# ── Parse attack args (args 2 and 3) ────────────────────────
+ATTACK_TYPE=${2:-"none"}    # none | label_flip | scaling | noise_injection
+ATTACK_FRAC=${3:-"0.0"}     # fraction of clients that are malicious
+
+if [ "$ATTACK_TYPE" != "none" ]; then
+    BATCH_SUFFIX="${BATCH_SUFFIX}_${ATTACK_TYPE}_$(echo $ATTACK_FRAC | tr '.' 'p')"
 fi
 
 EXPERIMENT_DIR="experiment_results"
@@ -42,6 +56,7 @@ echo "╠═══════════════════════�
 echo "║  Clients range:  ${MIN_CLIENTS} → ${MAX_CLIENTS} (incrementing by 1)       ║"
 echo "║  Round configs:  5, 7, 10                               ║"
 echo "║  Dropout:        ${DROPOUT_LABEL}                                ║"
+echo "║  Attacks:        $([ "$ATTACK_TYPE" == "none" ] && echo 'none (all honest)' || echo "$ATTACK_TYPE @ ${ATTACK_FRAC} fraction")  ║"
 echo "║  Total runs:     ${TOTAL_RUNS}                                     ║"
 echo "║  Output dir:     ${BATCH_DIR}              ║"
 echo "╚══════════════════════════════════════════════════════════╝"
@@ -94,14 +109,28 @@ for NUM_ROUNDS in "${ROUND_CONFIGS[@]}"; do
         echo "[2/6] Starting Ganache (port 7545, $GANACHE_ACCOUNTS accounts)..."
         ganache --port 7545 --accounts $GANACHE_ACCOUNTS > "$RUN_DIR/ganache.log" 2>&1 &
         GANACHE_PID=$!
-        sleep 3
 
-        if ! kill -0 $GANACHE_PID 2>/dev/null; then
-            echo "  ERROR: Ganache failed to start. Check $RUN_DIR/ganache.log"
+        # Poll until Ganache accepts connections (max 15 s) instead of sleeping blindly
+        GANACHE_READY=0
+        for _i in $(seq 1 15); do
+            sleep 1
+            if nc -z 127.0.0.1 7545 2>/dev/null || \
+               curl -sf http://127.0.0.1:7545 >/dev/null 2>&1; then
+                GANACHE_READY=1
+                break
+            fi
+            # Also bail early if the process already died
+            if ! kill -0 $GANACHE_PID 2>/dev/null; then
+                break
+            fi
+        done
+
+        if [ "$GANACHE_READY" -eq 0 ] || ! kill -0 $GANACHE_PID 2>/dev/null; then
+            echo "  ERROR: Ganache failed to start within 15s. Check $RUN_DIR/ganache.log"
             FAILED=$((FAILED + 1))
             continue
         fi
-        echo "  Ganache running (PID: $GANACHE_PID)"
+        echo "  Ganache ready (PID: $GANACHE_PID)"
 
         # ── Step 3: Deploy smart contracts ───────────────────────────
         echo ""
@@ -120,23 +149,45 @@ for NUM_ROUNDS in "${ROUND_CONFIGS[@]}"; do
         echo "[4/6] Starting FL server ($NUM_CLIENTS clients, $NUM_ROUNDS rounds)..."
         python server.py $NUM_CLIENTS $NUM_ROUNDS > "$RUN_DIR/server.log" 2>&1 &
         SERVER_PID=$!
-        sleep 5
 
-        if ! kill -0 $SERVER_PID 2>/dev/null; then
-            echo "  ERROR: Server failed to start. Check $RUN_DIR/server.log"
+        # Poll until gRPC port 9090 opens (max 20 s)
+        SERVER_READY=0
+        for _i in $(seq 1 20); do
+            sleep 1
+            if nc -z 127.0.0.1 9090 2>/dev/null; then
+                SERVER_READY=1
+                break
+            fi
+            if ! kill -0 $SERVER_PID 2>/dev/null; then
+                break
+            fi
+        done
+
+        if [ "$SERVER_READY" -eq 0 ] || ! kill -0 $SERVER_PID 2>/dev/null; then
+            echo "  ERROR: Server failed to start within 20s. Check $RUN_DIR/server.log"
             kill $GANACHE_PID 2>/dev/null
             FAILED=$((FAILED + 1))
             continue
         fi
-        echo "  Server running (PID: $SERVER_PID)"
+        echo "  Server ready (PID: $SERVER_PID)"
 
-        # ── Step 5: Launch clients ───────────────────────────────────
+        # ── Step 5: Launch clients (honest + malicious) ───────────────
+        NUM_MALICIOUS=$(python3 -c "import math; print(math.floor(${NUM_CLIENTS} * ${ATTACK_FRAC}))")
+        NUM_HONEST=$(( NUM_CLIENTS - NUM_MALICIOUS ))
+
         echo ""
-        echo "[5/6] Launching $NUM_CLIENTS clients..."
-        for ((i=0; i<NUM_CLIENTS; i++)); do
+        echo "[5/6] Launching $NUM_CLIENTS clients ($NUM_HONEST honest, $NUM_MALICIOUS malicious)..."
+
+        for ((i=0; i<NUM_HONEST; i++)); do
             python client.py $i $NUM_CLIENTS $DROPOUT_FLAG > "$RUN_DIR/client_${i}.log" 2>&1 &
-            sleep 0.5
         done
+
+        if [ "$NUM_MALICIOUS" -gt 0 ] && [ "$ATTACK_TYPE" != "none" ]; then
+            for ((i=NUM_HONEST; i<NUM_CLIENTS; i++)); do
+                python attack_simulator.py $i $ATTACK_TYPE $NUM_CLIENTS > "$RUN_DIR/client_${i}.log" 2>&1 &
+            done
+        fi
+
         echo "  All $NUM_CLIENTS clients launched."
 
         # ── Wait for server to finish (with timeout) ─────────────────
@@ -175,6 +226,7 @@ for NUM_ROUNDS in "${ROUND_CONFIGS[@]}"; do
         # Cleanup
         kill -9 $GANACHE_PID 2>/dev/null
         pkill -9 -f 'python client.py' 2>/dev/null
+        pkill -9 -f 'python attack_simulator.py' 2>/dev/null
         pkill -9 -f 'python server.py' 2>/dev/null
         sleep 3
 
@@ -191,6 +243,7 @@ done
 # ── Final cleanup ────────────────────────────────────────────
 pkill -f 'ganache' 2>/dev/null
 pkill -f 'python client.py' 2>/dev/null
+pkill -f 'python attack_simulator.py' 2>/dev/null
 pkill -f 'python server.py' 2>/dev/null
 
 BATCH_END=$(date +%s)

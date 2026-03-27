@@ -1,6 +1,22 @@
 import numpy as np
 from typing import List, Tuple, Dict
 
+
+def _mad_zscore(values: np.ndarray) -> np.ndarray:
+    """Median Absolute Deviation (MAD) modified z-score.
+
+    Robust against outliers even for very small N (≥2).  The constant 0.6745
+    makes the score equivalent to a classical z-score under Gaussian data.
+    Falls back to 0 when MAD == 0 (all values identical).
+    """
+    median = np.median(values)
+    mad = np.median(np.abs(values - median))
+    if mad == 0:
+        # All values are identical; no outliers possible
+        return np.zeros_like(values, dtype=float)
+    return 0.6745 * np.abs(values - median) / mad
+
+
 class PoisoningDetector:
     def __init__(self, z_threshold=2.0):
         self.z_threshold = z_threshold
@@ -23,53 +39,56 @@ class PoisoningDetector:
             return diff
         return diff / norm
 
-    def detect_poisoning(self, client_updates: List[Tuple[int, List[np.ndarray]]], 
+    def detect_poisoning(self, client_updates: List[Tuple[int, List[np.ndarray]]],
                          global_weights: List[np.ndarray] = None) -> Dict[int, dict]:
         results = {}
+        n = len(client_updates)
 
-        # Compute magnitude for each client
+        # ── Magnitude scores (MAD-based, robust for small N) ─────────
         magnitudes = {}
         for client_id, weights in client_updates:
             magnitudes[client_id] = self.compute_update_magnitude(weights)
 
-        mag_values = list(magnitudes.values())
-        mag_mean = np.mean(mag_values)
-        mag_std = np.std(mag_values) if len(mag_values) > 1 else 1.0
+        mag_values = np.array([magnitudes[cid] for cid, _ in client_updates])
+        mag_zscores = _mad_zscore(mag_values)
+        mag_z_map = {cid: mag_zscores[i] for i, (cid, _) in enumerate(client_updates)}
 
-        # Compute direction similarity if global weights provided
+        # ── Direction / cosine similarity scores ─────────────────────
         directions = {}
         if global_weights is not None:
             for client_id, weights in client_updates:
                 directions[client_id] = self.compute_update_direction(global_weights, weights)
 
-        # Compute pairwise cosine similarities
         cosine_scores = {}
         if directions:
             client_ids = list(directions.keys())
             for cid in client_ids:
-                sims = []
-                for other_cid in client_ids:
-                    if cid != other_cid:
-                        cos_sim = np.dot(directions[cid], directions[other_cid])
-                        sims.append(cos_sim)
-                cosine_scores[cid] = np.mean(sims) if sims else 1.0
+                sims = [
+                    np.dot(directions[cid], directions[other])
+                    for other in client_ids if other != cid
+                ]
+                cosine_scores[cid] = float(np.mean(sims)) if sims else 1.0
 
-        cos_values = list(cosine_scores.values()) if cosine_scores else []
-        cos_mean = np.mean(cos_values) if cos_values else 0
-        cos_std = np.std(cos_values) if len(cos_values) > 1 else 1.0
+        cos_values = np.array(list(cosine_scores.values())) if cosine_scores else np.array([])
+        if len(cos_values) > 1:
+            cos_zscores_arr = _mad_zscore(cos_values)
+            cos_z_map = {cid: cos_zscores_arr[i] for i, cid in enumerate(cosine_scores)}
+        else:
+            cos_z_map = {cid: 0.0 for cid in (cosine_scores or {})}
 
-        # Evaluate each client
+        # ── Per-client anomaly decision ───────────────────────────────
         for client_id, weights in client_updates:
             mag = magnitudes[client_id]
-            mag_z = abs(mag - mag_mean) / mag_std if mag_std > 0 else 0
-
-            cos_z = 0
-            if client_id in cosine_scores and cos_std > 0:
-                cos_z = abs(cosine_scores[client_id] - cos_mean) / cos_std
+            mag_z = mag_z_map.get(client_id, 0.0)
+            cos_z = cos_z_map.get(client_id, 0.0)
 
             # Combined anomaly score (weighted average)
             anomaly_score = 0.6 * mag_z + 0.4 * cos_z
-            is_poisoned = anomaly_score > self.z_threshold
+
+            # For very small cohorts (n < 5) raise the effective bar slightly
+            # to compensate for reduced statistical power.
+            effective_threshold = self.z_threshold * (1.0 + max(0, (5 - n) * 0.1))
+            is_poisoned = anomaly_score > effective_threshold
 
             results[client_id] = {
                 'magnitude': mag,
@@ -77,13 +96,15 @@ class PoisoningDetector:
                 'cosine_similarity': cosine_scores.get(client_id, None),
                 'cosine_z_score': cos_z,
                 'anomaly_score': anomaly_score,
+                'effective_threshold': round(effective_threshold, 4),
                 'is_poisoned': is_poisoned,
-                'passed_validation': not is_poisoned
+                'passed_validation': not is_poisoned,
             }
 
             status = "SUSPICIOUS" if is_poisoned else "CLEAN"
             print(f"[Client {client_id}] {status} | Anomaly: {anomaly_score:.4f} | "
-                  f"Mag Z: {mag_z:.4f} | Cos Z: {cos_z:.4f}")
+                  f"Mag Z: {mag_z:.4f} | Cos Z: {cos_z:.4f} "
+                  f"(threshold: {effective_threshold:.2f}, n={n})")
 
         self.history.append(results)
         return results

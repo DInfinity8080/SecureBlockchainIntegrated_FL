@@ -1,5 +1,11 @@
 from gpu_config import DEVICE_NAME  # auto-configures GPU/Metal/CPU
 import os
+import sys
+
+# Force UTF-8 output on Windows so Unicode box-drawing characters don't crash
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 import flwr as fl
 from flwr.common import parameters_to_ndarrays, ndarrays_to_parameters, FitRes, Parameters
@@ -20,6 +26,14 @@ NUM_CLIENTS = 10
 NUM_ROUNDS = 5
 Z_THRESHOLD = 1.5
 SERVER_ADDRESS = "0.0.0.0:9090"
+
+# Centralised baseline (baseline.py, 15 epochs on full NSL-KDD train+test):
+#   Test accuracy: 81.10% | Test loss: 1.75
+# FL is expected to reach ~76–79% due to data partitioning, heterogeneous
+# devices, and dropout — a ~2–5% gap is acceptable for the privacy/
+# communication gains federated learning provides.
+BASELINE_ACCURACY = 0.8110
+FL_ACCURACY_TARGET = 0.76   # minimum acceptable FL accuracy
 
 # Dropout / Async settings
 FRACTION_FIT = 0.7
@@ -244,6 +258,7 @@ class SecureFedAvg(fl.server.strategy.FedAvg):
                 'cosine_similarity': round(info['cosine_similarity'], 4) if info['cosine_similarity'] is not None else None,
                 'cosine_z_score': round(info['cosine_z_score'], 4),
                 'anomaly_score': round(info['anomaly_score'], 4),
+                'effective_threshold': info.get('effective_threshold', Z_THRESHOLD),
                 'is_poisoned': info['is_poisoned'],
                 'passed_validation': info['passed_validation'],
             })
@@ -381,6 +396,7 @@ class SecureFedAvg(fl.server.strategy.FedAvg):
     def save_all_results(self, total_time, num_rounds, num_clients):
         os.makedirs(RESULTS_DIR, exist_ok=True)
 
+        final_acc = self.accuracy_log[-1]['distributed_accuracy'] if self.accuracy_log else None
         config = {
             'session_id': self.session_id,
             'timestamp': datetime.now().isoformat(),
@@ -392,6 +408,11 @@ class SecureFedAvg(fl.server.strategy.FedAvg):
             'min_fit_clients': MIN_FIT_CLIENTS,
             'round_timeout': ROUND_TIMEOUT,
             'total_time_s': round(total_time, 2),
+            'baseline_accuracy': BASELINE_ACCURACY,
+            'fl_accuracy_target': FL_ACCURACY_TARGET,
+            'fl_final_accuracy': round(final_acc, 6) if final_acc is not None else None,
+            'accuracy_gap_vs_baseline': round(BASELINE_ACCURACY - final_acc, 6) if final_acc is not None else None,
+            'met_fl_target': bool(final_acc >= FL_ACCURACY_TARGET) if final_acc is not None else None,
         }
         with open(os.path.join(RESULTS_DIR, "session_config.json"), 'w') as f:
             json.dump(config, f, indent=2)
@@ -499,6 +520,11 @@ class SecureFedAvg(fl.server.strategy.FedAvg):
             print(f"║  Final Accuracy:           {final_acc:.4f} ({final_acc*100:.2f}%)".ljust(59) + "║")
             print(f"║  Final Loss:               {final_loss:.4f}".ljust(59) + "║")
             print(f"║  Accuracy Improvement:     +{improvement:.4f} over {len(self.accuracy_log)} rounds".ljust(59) + "║")
+            gap = BASELINE_ACCURACY - final_acc
+            gap_str = f"+{gap*100:.2f}%" if gap >= 0 else f"{gap*100:.2f}%"
+            target_str = "PASS" if final_acc >= FL_ACCURACY_TARGET else "FAIL"
+            print(f"║  Centralised baseline:     {BASELINE_ACCURACY:.4f} (gap: {gap_str})".ljust(59) + "║")
+            print(f"║  FL target (>={FL_ACCURACY_TARGET:.0%}):        {target_str}".ljust(59) + "║")
         else:
             print("║  No accuracy data collected".ljust(59) + "║")
 

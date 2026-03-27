@@ -15,7 +15,7 @@ import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from model import create_model
-from data_loader import load_and_preprocess, partition_data, ATTACK_MAP, CLASS_MAP
+from data_loader import load_and_preprocess, partition_data, dirichlet_partition_data, ATTACK_MAP, CLASS_MAP
 from poisoning_detector import PoisoningDetector
 from client import DEVICE_TIERS, assign_tier, compute_update_size
 
@@ -100,6 +100,91 @@ class TestDataLoader(unittest.TestCase):
             self.assertIn(category, CLASS_MAP)
 
 
+class TestDirichletPartition(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.X, cls.y = load_and_preprocess()
+
+    def test_correct_number_of_partitions(self):
+        parts = dirichlet_partition_data(self.X, self.y, num_clients=5, alpha=0.5)
+        self.assertEqual(len(parts), 5)
+
+    def test_all_clients_get_samples(self):
+        parts = dirichlet_partition_data(self.X, self.y, num_clients=10, alpha=0.5)
+        for i, (px, py) in enumerate(parts):
+            self.assertGreater(len(px), 0, f"Client {i} got no samples")
+
+    def test_min_samples_guarantee(self):
+        parts = dirichlet_partition_data(self.X, self.y, num_clients=10,
+                                         alpha=0.01, min_samples=50)
+        for px, py in parts:
+            self.assertGreaterEqual(len(px), 50)
+
+    def test_labels_and_features_match(self):
+        parts = dirichlet_partition_data(self.X, self.y, num_clients=5)
+        for px, py in parts:
+            self.assertEqual(len(px), len(py))
+
+    def test_low_alpha_is_more_skewed_than_high_alpha(self):
+        """Lower alpha → each client more dominated by fewer classes."""
+        def class_entropy(py):
+            counts = np.bincount(py, minlength=5).astype(float)
+            counts /= counts.sum()
+            counts = counts[counts > 0]
+            return -np.sum(counts * np.log(counts))
+
+        skewed = dirichlet_partition_data(self.X, self.y, num_clients=5, alpha=0.05, seed=0)
+        uniform = dirichlet_partition_data(self.X, self.y, num_clients=5, alpha=10.0, seed=0)
+        avg_entropy_skewed = np.mean([class_entropy(py) for _, py in skewed])
+        avg_entropy_uniform = np.mean([class_entropy(py) for _, py in uniform])
+        self.assertLess(avg_entropy_skewed, avg_entropy_uniform)
+
+    def test_reproducible_with_same_seed(self):
+        p1 = dirichlet_partition_data(self.X, self.y, num_clients=5, seed=42)
+        p2 = dirichlet_partition_data(self.X, self.y, num_clients=5, seed=42)
+        for (x1, y1), (x2, y2) in zip(p1, p2):
+            np.testing.assert_array_equal(x1, x2)
+
+    def test_different_seeds_differ(self):
+        p1 = dirichlet_partition_data(self.X, self.y, num_clients=5, seed=1)
+        p2 = dirichlet_partition_data(self.X, self.y, num_clients=5, seed=2)
+        # At least one partition should differ between seeds
+        any_diff = any(not np.array_equal(x1, x2) for (x1, _), (x2, _) in zip(p1, p2))
+        self.assertTrue(any_diff)
+
+
+class TestDownloadErrorHandling(unittest.TestCase):
+    def test_bad_url_raises_runtime_error(self):
+        """If download fails, a RuntimeError with actionable message should be raised."""
+        from unittest.mock import patch
+        import data_loader as dl
+
+        with patch('urllib.request.urlretrieve', side_effect=Exception("404 Not Found")):
+            # Temporarily rename any existing file so the download is attempted
+            import tempfile, shutil
+            with tempfile.TemporaryDirectory() as tmpdir:
+                with self.assertRaises(RuntimeError) as ctx:
+                    dl.download_nslkdd(data_dir=tmpdir)
+        self.assertIn("Failed to download", str(ctx.exception))
+        self.assertIn("defcom17", str(ctx.exception))  # URL hint present
+
+    def test_tiny_file_raises_runtime_error(self):
+        """A suspiciously small downloaded file (e.g. 404 HTML) should be rejected."""
+        from unittest.mock import patch
+        import data_loader as dl
+        import tempfile
+
+        def fake_retrieve(url, dest):
+            with open(dest, 'w') as f:
+                f.write("<html>404 Not Found</html>")  # tiny HTML, not CSV
+
+        with patch('urllib.request.urlretrieve', side_effect=fake_retrieve):
+            with tempfile.TemporaryDirectory() as tmpdir:
+                with self.assertRaises(RuntimeError) as ctx:
+                    dl.download_nslkdd(data_dir=tmpdir)
+        self.assertIn("too small", str(ctx.exception))
+
+
 class TestPoisoningDetector(unittest.TestCase):
     def setUp(self):
         self.detector = PoisoningDetector(z_threshold=1.5)
@@ -135,6 +220,36 @@ class TestPoisoningDetector(unittest.TestCase):
             self.assertIn('anomaly_score', info)
             self.assertIn('is_poisoned', info)
             self.assertIn('passed_validation', info)
+            self.assertIn('effective_threshold', info)  # added by MAD scorer
+
+    def test_small_n_honest_clients_not_flagged(self):
+        """With N=5, one extreme outlier should not cause honest clients to be flagged.
+
+        This was broken with classic std-based z-score: a single large outlier
+        inflates std so much that everyone else gets a near-zero z-score,
+        making detection unreliable.  MAD is immune to this.
+
+        Note: global_weights must use a seed different from all client seeds so
+        that no client has a zero-vector update (identical weights → zero diff →
+        direction = zero vector → anomalous cosine similarity).
+        """
+        honest = [(i, self._make_weights(1.0, seed=i)) for i in range(4)]
+        outlier = [(99, self._make_weights(500.0, seed=99))]
+        updates = honest + outlier
+        results = self.detector.detect_poisoning(updates, global_weights=self._make_weights(1.0, seed=42))
+        poisoned = self.detector.get_poisoned_clients(results)
+        # Extreme outlier must be caught
+        self.assertIn(99, poisoned)
+        # Honest clients must NOT be falsely flagged
+        for cid, _ in honest:
+            self.assertNotIn(cid, poisoned, f"Honest client {cid} falsely flagged")
+
+    def test_effective_threshold_higher_for_very_small_n(self):
+        """With N < 5 the effective threshold should be raised above the base threshold."""
+        updates = [(i, self._make_weights(1.0, seed=i)) for i in range(3)]
+        results = self.detector.detect_poisoning(updates)
+        for info in results.values():
+            self.assertGreater(info['effective_threshold'], self.detector.z_threshold)
 
     def test_threshold_sensitivity(self):
         updates = [
@@ -342,12 +457,14 @@ if __name__ == '__main__':
     loader = unittest.TestLoader()
 
     test_groups = {
-        'Model':              TestModel,
-        'Data Loader':        TestDataLoader,
-        'Poisoning Detector': TestPoisoningDetector,
-        'Client Utilities':   TestClientUtilities,
-        'Blockchain Helper':  TestBlockchainHelper,
-        'Attack Simulator':   TestAttackSimulator,
+        'Model':               TestModel,
+        'Data Loader':         TestDataLoader,
+        'Dirichlet Partition': TestDirichletPartition,
+        'Download Errors':     TestDownloadErrorHandling,
+        'Poisoning Detector':  TestPoisoningDetector,
+        'Client Utilities':    TestClientUtilities,
+        'Blockchain Helper':   TestBlockchainHelper,
+        'Attack Simulator':    TestAttackSimulator,
     }
 
     total_tests = 0

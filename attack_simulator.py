@@ -52,11 +52,14 @@ class MaliciousClient(fl.client.NumPyClient):
 
         updated_weights = self.model.get_weights()
 
-        # Scale attack: amplify the update
+        # Scale attack: amplify the update by a modest factor so it is not
+        # trivially detected by magnitude z-score while still corrupting
+        # aggregation.  10× was too obvious; 2× sits within a plausible
+        # range for a well-trained Tier-1 client with more data.
         if self.attack_type == 'scaling':
-            print(f"[ATTACKER {self.client_id}] Scaling attack - amplifying weights 10x")
+            print(f"[ATTACKER {self.client_id}] Scaling attack - amplifying weights 2x")
             diff = [new - old for new, old in zip(updated_weights, parameters)]
-            updated_weights = [old + 10.0 * d for old, d in zip(parameters, diff)]
+            updated_weights = [old + 2.0 * d for old, d in zip(parameters, diff)]
 
         if self.blockchain:
             try:
